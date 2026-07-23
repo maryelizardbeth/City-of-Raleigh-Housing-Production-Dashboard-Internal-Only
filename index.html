@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Raleigh Housing Landscape | Map &amp; Dashboard</title>
+
+    <link rel="stylesheet" href="https://js.arcgis.com/5.1/@arcgis/core/assets/esri/themes/light/main.css" />
+    <script type="module" src="https://js.arcgis.com/5.1/"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+
+  <body>
+    <header class="app-header">
+      <img class="logo" src="./raleigh_horizontal.png" alt="City of Raleigh" />
+      <div class="title">Housing Landscape
+        <small>Affordable &amp; City-Supported Housing</small>
+      </div>
+      <nav>
+        <a href="#map" class="active">Map</a>
+        <a href="#dashboard">Dashboard</a>
+      </nav>
+    </header>
+
+    <!-- ============================ MAP SECTION ============================ -->
+    <section id="map" class="map-section">
+      <aside class="sidebar">
+        <div class="panel-section">
+          <p class="panel-intro">Explore where the City of Raleigh has funded, built, or preserved
+          affordable housing, alongside neighborhood boundaries, transit, and market indicators.
+          Click any point for project details. Scroll down for citywide production charts.</p>
+        </div>
+
+        <div class="panel-section">
+          <h2>City housing layers</h2>
+          <div class="checks" id="housingToggles"></div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Filter Housing Data</h2>
+          <div class="field"><label for="fYear">Fiscal year</label><select id="fYear"><option value="">All years</option></select></div>
+          <div class="field"><label for="fStatus">Status</label>
+            <select id="fStatus"><option value="">All</option><option value="Complete">Complete</option><option value="Pipeline">In pipeline</option></select>
+          </div>
+          <div class="field"><label for="fFunding">City funding source</label><select id="fFunding"><option value="">Any source</option></select></div>
+          <div class="field">
+            <label for="loanMinN">City funding — City of Raleigh loan ($)</label>
+            <div class="range-wrap">
+              <div class="range-track"></div>
+              <div class="range-fill" id="loanFill"></div>
+              <input type="range" id="loanMinR" min="0" max="100" step="1" value="0" aria-label="Minimum loan amount" />
+              <input type="range" id="loanMaxR" min="0" max="100" step="1" value="100" aria-label="Maximum loan amount" />
+            </div>
+            <div class="range-inputs">
+              <input type="number" id="loanMinN" min="0" placeholder="min" />
+              <span>to</span>
+              <input type="number" id="loanMaxN" min="0" placeholder="max" />
+            </div>
+            <div class="range-label" id="loanLabel"></div>
+          </div>
+          <div class="field"><label for="fDevType">Development type</label><select id="fDevType"><option value="">Any</option></select></div>
+          <div class="field"><label for="fDistrict">Council district</label><select id="fDistrict"><option value="">All districts</option></select></div>
+          <div class="field"><label for="fNcod">Neighborhood Conservation Overlay (NCOD)</label><select id="fNcod"><option value="">All areas</option></select></div>
+          <div class="btn-row">
+            <button class="btn" id="applyBtn">Apply filters</button>
+            <button class="btn secondary" id="resetBtn">Reset</button>
+          </div>
+          <div class="note" id="resultCount" style="margin-top:10px;"></div>
+          <div class="note" style="margin-top:8px;">Filters apply to <strong>all city housing layers</strong>. A layer that lacks a
+          selected field (e.g. only Development has a development type; Homebuyer Assistance has no status) is hidden while that filter is active.</div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Subsidized / HUD housing</h2>
+          <div class="checks" id="hudToggles"></div>
+          <div class="note">Non-City-funded subsidized housing from HUD (filtered to Wake County), including
+          Raleigh Housing Authority (RHA) public housing. Distinct marker shapes; City projects are circles.</div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Reference layers</h2>
+          <div class="checks" id="refToggles"></div>
+          <div class="note" id="refNote"></div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Legend</h2>
+          <div class="legend-item"><span class="swatch" style="background:#0D6937"></span> Completed City development</div>
+          <div class="legend-item"><span class="swatch" style="background:#FBAE40"></span> In pipeline (pre / under construction)</div>
+          <div class="legend-item" style="margin-top:6px;color:#666;font-size:.78rem;">Development marker size ∝ total units</div>
+          <div class="legend-item" style="margin-top:8px;"><span class="swatch" style="background:#4C8C40;width:9px;height:9px;"></span> Other housing impact (approx.)</div>
+          <div class="legend-item"><span class="swatch" style="background:#189ABC;width:9px;height:9px;"></span> Homeowner rehab (approx.)</div>
+          <div class="legend-item"><span class="swatch" style="background:#01426A;width:9px;height:9px;"></span> Homebuyer assistance (approx.)</div>
+          <div class="legend-item" style="margin-top:8px;"><span style="color:#01426A;font-size:1rem;">■</span> HUD Public Housing (incl. RHA)</div>
+          <div class="legend-item"><span style="color:#189ABC;font-size:1rem;">◆</span> HUD Multifamily Assisted (Sec 8/202/811)</div>
+          <div class="legend-item"><span style="color:#FBAE40;font-size:1rem;">▲</span> LIHTC properties</div>
+          <div class="legend-item"><span style="color:#A8322D;font-size:1rem;">✕</span> HUD-Insured Multifamily</div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Data notes</h2>
+          <div class="note">
+            AMI affordability breakdowns show only for <strong>Complete</strong> development projects (per HCD rules).
+            The Homeowner Rehab, Homebuyer Assistance, and Other Housing Impact layers are
+            <strong>public de-identified</strong> versions — resident names and addresses are removed and each point is
+            shifted 200–700 m, so mapped locations are <strong>approximate</strong>. Mapped point counts are geometry and
+            <strong>do not reconcile</strong> to the Housing Production Tracker totals (the source of truth) — see the charts below.
+          </div>
+        </div>
+
+        <div class="footer-note">
+          Prototype (V2) — template for staff use, not an approved public release. Housing layers served from the Raleigh
+          AGOL org; reference layers from maps.raleighnc.gov. Brand: City of Raleigh. Design review: DesignTeam@raleighnc.gov.
+        </div>
+      </aside>
+
+      <div class="main">
+        <arcgis-map basemap="osm">
+          <arcgis-zoom slot="top-left"></arcgis-zoom>
+          <arcgis-expand slot="top-right" close-on-esc>
+            <arcgis-legend></arcgis-legend>
+          </arcgis-expand>
+        </arcgis-map>
+      </div>
+    </section>
+
+    <!-- ========================= DASHBOARD SECTION ======================== -->
+    <div class="section-band">
+      <h1>Housing Production Dashboard</h1>
+      <p id="sub"></p>
+    </div>
+
+    <div id="dashboard" class="dash-wrap">
+      <h2 style="color:var(--raleigh-green);font-size:1.05rem;margin:4px 0 4px;">Citywide production (all districts)</h2>
+      <div><span class="src-badge" id="truthBadge">Source of truth: Housing Production Tracker (aggregate table)</span></div>
+      <div class="kpi-row" id="kpis" style="margin-top:14px;"></div>
+
+      <div class="card-grid">
+        <div class="card wide">
+          <h3>Completed units by fiscal year (by category)</h3>
+          <div class="chart-box"><canvas id="stacked"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Total completed by fiscal year</h3>
+          <div class="chart-box"><canvas id="totalByYear"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Share of completed units by category</h3>
+          <div class="chart-box"><canvas id="share"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Cumulative units completed</h3>
+          <div class="chart-box"><canvas id="cumulative"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Pipeline — units not yet complete (FY26)</h3>
+          <div class="chart-box"><canvas id="pipeline"></canvas></div>
+          <div id="pipelineNote"></div>
+        </div>
+      </div>
+
+      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">City housing by council district</h2>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 6px;">
+        <label for="distSel" style="font-weight:600;font-size:.85rem;">Council district</label>
+        <select id="distSel" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;"><option value="">All districts</option></select>
+      </div>
+      <div class="caveat" id="distCaveat">
+        Derived from the <strong>mapped point layers</strong> (geometry), not the aggregate tracker. These counts will
+        <strong>not match</strong> the citywide totals above: the de-identified layers exclude any records that could not be
+        geocoded, and "units" are counted per point rather than as the tracker reports them.
+      </div>
+      <div class="kpi-row" id="distKpis" style="margin-top:14px;"></div>
+      <div class="card wide">
+        <h3 id="distChartTitle">Units by district and program</h3>
+        <div class="chart-box"><canvas id="distChart"></canvas></div>
+      </div>
+
+      <div class="footer-note" id="footer"></div>
+    </div>
+
+    <!-- ============================== SCRIPT ============================== -->
+    <script type="module">
+      import {
+        MAP, HOUSING_LAYERS, HUD_LAYERS, REFERENCE_LAYERS, SUMMARY_TABLE,
+        DEV_FIELDS, REHAB_FIELDS, HBA_FIELDS, OTHER_FIELDS, BRAND,
+      } from "./config.js";
+
+      const [FeatureLayer, VectorTileLayer, Basemap] = await Promise.all([
+        $arcgis.import("@arcgis/core/layers/FeatureLayer.js"),
+        $arcgis.import("@arcgis/core/layers/VectorTileLayer.js"),
+        $arcgis.import("@arcgis/core/Basemap.js"),
+      ]);
+
+      const viewEl = document.querySelector("arcgis-map");
+      viewEl.center = MAP.center;
+      viewEl.zoom = MAP.zoom;
+      await viewEl.viewOnReady();
+
+      // Use the web map's Community (US Edition) vector basemap (public, key-free).
+      if (MAP.basemap === "community") {
+        viewEl.map.basemap = new Basemap({
+          baseLayers: [ new VectorTileLayer({ url: MAP.communityStyleUrl }) ],
+          title: "Community", id: "community",
+        });
+      }
+
+      /* ---- formatters ---------------------------------------------------- */
+      const num  = (v) => (v == null || String(v).trim() === "") ? 0 : Number(v);
+      const fmtMoney = (v) => (v == null || v === "") ? "—" : "$" + Number(v).toLocaleString("en-US", { maximumFractionDigits: 0 });
+      const fmtNum   = (v) => (v == null || v === "") ? "—" : Number(v).toLocaleString("en-US");
+      const fmtDate  = (v) => {
+        if (v == null || v === "") return "—";
+        const d = (typeof v === "number") ? new Date(v) : new Date(String(v));
+        return isNaN(d) ? String(v) : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+      };
+      const clean = (v) => (v == null || String(v).trim() === "" || String(v).trim() === "None") ? "" : String(v).trim();
+
+      /* ---- symbols / renderers ------------------------------------------ */
+      const marker = (color, size = 9) => ({ type: "simple-marker", size, color, outline: { color: "#ffffff", width: 1 } });
+      const devRenderer = {
+        type: "unique-value", field: DEV_FIELDS.projectStatus,
+        uniqueValueInfos: [
+          { value: "Complete", symbol: marker(BRAND.raleighGreen), label: "Completed City development" },
+          { value: "Pipeline", symbol: marker(BRAND.amber),        label: "In pipeline" },
+        ],
+        defaultSymbol: marker("#8a8a8a"), defaultLabel: "Other",
+        visualVariables: [{
+          type: "size", field: DEV_FIELDS.totalUnits, legendOptions: { title: "Total units" },
+          stops: [ { value: 10, size: 8 }, { value: 50, size: 16 }, { value: 120, size: 26 }, { value: 300, size: 38 } ],
+        }],
+      };
+      const simpleRenderer = (color, label) => ({ type: "simple", symbol: marker(color, 6), label });
+
+      /* ---- popups -------------------------------------------------------- */
+      function row(k, v) { return `<tr><td class="k">${k}</td><td>${v}</td></tr>`; }
+      const deidNote = `<div class="note" style="margin-top:8px;">Public de-identified record — location is approximate (shifted 200–700 m); resident name and address removed.</div>`;
+
+      function amiBar(a, bands, unrestrictedField) {
+        const segs = bands.map(([f, lbl, color]) => [lbl, num(a[f]), color]);
+        if (unrestrictedField) segs.push(["Market", num(a[unrestrictedField]), "#BFBFBF"]);
+        const use = segs.filter(s => s[1] > 0);
+        const tot = use.reduce((s, x) => s + x[1], 0);
+        if (!tot) return "";
+        const bar = use.map(s => `<span title="${s[0]} AMI: ${s[1]}" style="flex:${s[1]};background:${s[2]}"></span>`).join("");
+        const legend = use.map(s => `<span style="white-space:nowrap;margin-right:8px;"><span style="display:inline-block;width:9px;height:9px;background:${s[2]};border-radius:2px;"></span> ${s[0]}: ${s[1]}</span>`).join("");
+        return `<div style="margin-top:8px;"><div class="k" style="font-size:.78rem;">Affordability by AMI</div>
+                <div class="ami-bar">${bar}</div><div style="font-size:.72rem;">${legend}</div></div>`;
+      }
+      function devPopup(a) {
+        const F = DEV_FIELDS;
+        const funds = F.fundingAmounts.filter(([f]) => num(a[f]) > 0).map(([f, lbl]) => `${lbl}: ${fmtMoney(a[f])}`);
+        let h = `<div class="pop"><table>`;
+        h += row("Developer", clean(a[F.developer]) || "—");
+        h += row("Address", clean(a[F.address]) || "—");
+        h += row("Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
+        h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
+        h += row("Total units", fmtNum(a[F.totalUnits]));
+        if (num(a[F.homeownership]) > 0) h += row("Homeownership units", fmtNum(a[F.homeownership]));
+        h += row("Population served", clean(a[F.population]) || "—");
+        h += row("Construction", clean(a[F.construction]) || "—");
+        h += row("Development type", clean(a[F.developmentType]) || "—");
+        h += row("Council district", clean(a[F.council]) || "—");
+        h += row("City contribution", fmtMoney(a[F.loanAmount]));
+        if (funds.length) h += row("Funding sources", funds.join("<br>"));
+        if (a[F.coDate]) h += row("Certificate of Occ.", fmtDate(a[F.coDate]));
+        h += `</table>`;
+        if (clean(a[F.projectStatus]) === "Complete") h += amiBar(a, F.amiBands, F.unrestricted);
+        else h += `<div class="note" style="margin-top:8px;">AMI affordability breakdown withheld until project is complete.</div>`;
+        return h + `</div>`;
+      }
+      function otherPopup(a) {
+        const F = OTHER_FIELDS;
+        let h = `<div class="pop"><table>`;
+        h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
+        h += row("Total units", fmtNum(a[F.totalUnits]));
+        h += row("Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
+        h += row("Council district", clean(a[F.council]) || "—");
+        if (clean(a[F.notes])) h += row("Notes", clean(a[F.notes]));
+        return h + `</table>${deidNote}</div>`;
+      }
+      function rehabPopup(a) {
+        const F = REHAB_FIELDS;
+        let h = `<div class="pop"><table>`;
+        h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
+        h += row("Rehab type", clean(a[F.rehabType]) || "—");
+        h += row("Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
+        h += row("Household AMI", num(a[F.ami]) > 0 ? (num(a[F.ami]) * 100).toFixed(1) + "%" : "—");
+        h += row("Approved loan", fmtMoney(a[F.loanAmount]));
+        h += row("Funding source", clean(a[F.fundingSource]) || "—");
+        h += row("Council district", clean(a[F.council]) || "—");
+        if (clean(a[F.note])) h += row("Note", clean(a[F.note]));
+        return h + `</table>${deidNote}</div>`;
+      }
+      function hbaPopup(a) {
+        const F = HBA_FIELDS;
+        const band = F.amiBands.find(k => num(a[k]) > 0);
+        let h = `<div class="pop"><table>`;
+        h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
+        h += row("Household AMI", num(a[F.ami]) > 0 ? (num(a[F.ami]) * 100).toFixed(1) + "%" : (band ? band.match(/\d+/)[0] + "% band" : "—"));
+        h += row("City loan amount", fmtMoney(a[F.loanAmount]));
+        h += row("Funding source", clean(a[F.fundingSource]) || "—");
+        h += row("Council district", clean(a[F.council]) || "—");
+        return h + `</table>${deidNote}</div>`;
+      }
+
+      const POPUP = { dev: devPopup, other: otherPopup, rehab: rehabPopup, hba: hbaPopup };
+      const RENDERER = {
+        dev:   devRenderer,
+        other: simpleRenderer(BRAND.midGreen, "Other housing impact (approx.)"),
+        rehab: simpleRenderer(BRAND.teal,     "Homeowner rehab (approx.)"),
+        hba:   simpleRenderer(BRAND.navy,     "Homebuyer assistance (approx.)"),
+      };
+      const TITLE_FIELD = { dev: DEV_FIELDS.project, other: OTHER_FIELDS.fiscalYear, rehab: REHAB_FIELDS.rehabType, hba: HBA_FIELDS.fiscalYear };
+
+      /* ---- build the four housing layers -------------------------------- */
+      const housing = {};
+      for (const cfg of HOUSING_LAYERS) {
+        const fl = new FeatureLayer({
+          url: cfg.url, title: cfg.title, id: cfg.id, visible: cfg.visible, outFields: ["*"],
+          renderer: RENDERER[cfg.kind],
+          popupTemplate: {
+            title: cfg.kind === "dev" ? `{${DEV_FIELDS.project}}` : cfg.title,
+            outFields: ["*"],
+            content: (e) => POPUP[cfg.kind](e.graphic.attributes),
+          },
+        });
+        housing[cfg.id] = fl;
+      }
+      // add in reverse so Development draws on top of the de-identified dots
+      viewEl.map.addMany([housing.homebuyer_assistance, housing.homeowner_rehabs, housing.other_housing_impact, housing.housing_development]);
+
+      /* ---- HUD / subsidized layers -------------------------------------- */
+      const firstNonNull = (a, keys) => { for (const k of keys) { const v = a[k]; if (v != null && String(v).trim() !== "") return String(v).trim(); } return null; };
+      const hudMarker = (style, color) => ({ type: "simple-marker", style, size: 8, color, outline: { color: "#ffffff", width: 1 } });
+      function hudPopup(hc, a) {
+        const addr = hc.addr.map(k => a[k]).filter(v => v != null && String(v).trim() !== "").map(v => String(v).trim()).join(", ");
+        let h = `<div class="pop"><table>`;
+        if (addr) h += row("Address", addr);
+        if (hc.units && a[hc.units] != null && String(a[hc.units]) !== "0") h += row("Units", fmtNum(a[hc.units]));
+        (hc.extra || []).forEach(([lbl, key]) => { const v = a[key]; if (v != null && String(v).trim() !== "" && String(v) !== "0") h += row(lbl, String(v).trim()); });
+        return h + `</table></div>`;
+      }
+      const hudToggles = document.getElementById("hudToggles");
+      for (const hc of HUD_LAYERS) {
+        const fl = new FeatureLayer({
+          url: hc.url, title: hc.title, id: hc.id, visible: hc.visible,
+          definitionExpression: hc.where, outFields: ["*"],
+          renderer: { type: "simple", symbol: hudMarker(hc.style, hc.color) },
+          popupTemplate: { title: (e) => firstNonNull(e.graphic.attributes, hc.name) || hc.title, outFields: ["*"], content: (e) => hudPopup(hc, e.graphic.attributes) },
+        });
+        viewEl.map.add(fl);
+        const label = document.createElement("label");
+        const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = hc.visible;
+        cb.addEventListener("change", () => (fl.visible = cb.checked));
+        label.append(cb, document.createTextNode(" " + hc.title));
+        hudToggles.appendChild(label);
+      }
+
+      /* ---- reference layers --------------------------------------------- */
+      const refToggles = document.getElementById("refToggles");
+      const hexToRgba = (hex, a) => { const h = hex.replace("#", ""); return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16), a]; };
+      const labelInfo = (rc) => rc.labelField ? [{
+        symbol: { type: "text", color: rc.color, haloColor: "#ffffff", haloSize: 1.2, font: { size: rc.kind === "transit" ? 8 : 10, weight: "bold" } },
+        labelExpressionInfo: { expression: `$feature.${rc.labelField}` },
+        labelPlacement: rc.kind === "transit" ? "center-along" : "always-horizontal",
+        minScale: rc.kind === "transit" ? 60000 : 0,
+      }] : undefined;
+      function makeRenderer(rc) {
+        if (rc.kind === "boundary")
+          return { type: "simple", symbol: { type: "simple-fill", color: hexToRgba(rc.color, 0.07), outline: { color: rc.color, width: 1.5 } } };
+        if (rc.kind === "transit")
+          return { type: "simple", symbol: { type: "simple-line", color: rc.color, width: rc.width || 2, cap: "round", join: "round" } };
+        return undefined;
+      }
+      function makePopup(rc) {
+        if (rc.id === "council_districts") return { title: "Council District {COUNCIL_DIST}", content: "Council member: {COUNCIL_PERSON}" };
+        if (rc.id === "ncods") return { title: "{OLAY_NAME}", content: "Overlay: {OVERLAY}<br>Effective: {EFF_DATE}" };
+        if (rc.kind === "transit") return { title: rc.labelField ? `{${rc.labelField}}` : rc.title };
+        return null;
+      }
+      for (const rc of REFERENCE_LAYERS) {
+        const wrap = document.createElement("div");
+        const label = document.createElement("label");
+        const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = rc.visible;
+        const fl = new FeatureLayer({
+          url: rc.url, title: rc.title, visible: rc.visible, id: rc.id,
+          renderer: makeRenderer(rc), labelingInfo: labelInfo(rc),
+          opacity: rc.kind === "choropleth" ? 0.72 : 1,
+          popupEnabled: !!makePopup(rc), popupTemplate: makePopup(rc) || undefined, outFields: ["*"],
+        });
+        viewEl.map.add(fl, 0);
+        cb.addEventListener("change", () => {
+          fl.visible = cb.checked;
+          if (rc.kind === "choropleth") indicatorWrap.style.display = cb.checked ? "" : "none";
+        });
+        label.append(cb, document.createTextNode(" " + rc.title));
+        wrap.appendChild(label);
+        refToggles.appendChild(wrap);
+
+        if (rc.kind === "choropleth") {
+          var indicatorWrap = document.createElement("div");
+          indicatorWrap.style.cssText = "margin:6px 0 4px 22px;display:" + (rc.visible ? "" : "none");
+          const sel = document.createElement("select");
+          sel.style.cssText = "width:100%;padding:5px;font:inherit;font-size:.8rem;border:1px solid var(--border);border-radius:4px;";
+          rc.indicators.forEach(ind => { const o = document.createElement("option"); o.value = ind.id; o.textContent = ind.label; if (!ind.field && !ind.expr) o.disabled = true; sel.appendChild(o); });
+          sel.value = rc.defaultIndicator;
+          const legendBox = document.createElement("div"); legendBox.style.cssText = "margin-top:6px;font-size:.72rem;";
+          indicatorWrap.append(sel, legendBox);
+          refToggles.appendChild(indicatorWrap);
+          sel.addEventListener("change", () => applyChoropleth(rc, fl, sel.value, legendBox));
+          applyChoropleth(rc, fl, sel.value, legendBox);
+        }
+      }
+      document.getElementById("refNote").innerHTML =
+        "Connected to City of Raleigh services (maps.raleighnc.gov &amp; Raleigh AGOL). " +
+        "Median gross rent &amp; cost-burden indicators are disabled until an ACS housing-cost layer is supplied.";
+
+      const fmtByType = { currency: fmtMoney, number: fmtNum, percent: (v) => v == null ? "—" : Number(v).toFixed(1) + "%" };
+      async function applyChoropleth(rc, layer, indicatorId, legendBox) {
+        const ind = rc.indicators.find(i => i.id === indicatorId);
+        if (!ind || (!ind.field && !ind.expr)) return;
+        try {
+          const q = layer.createQuery();
+          q.where = ind.field ? `${ind.field} IS NOT NULL` : "1=1";
+          q.returnGeometry = false;
+          q.outFields = ind.field ? [ind.field] : ["TOTHU_CY_1", "VACANT_CY_1"];
+          const res = await layer.queryFeatures(q);
+          const vals = res.features.map(f => {
+            const a = f.attributes;
+            if (ind.field) return a[ind.field];
+            return a.TOTHU_CY_1 > 0 ? (a.VACANT_CY_1 / a.TOTHU_CY_1) * 100 : null;
+          }).filter(v => v != null && !isNaN(v)).sort((x, y) => x - y);
+          if (!vals.length) return;
+          const n = 5, breaks = [];
+          for (let i = 1; i < n; i++) breaks.push(vals[Math.floor(vals.length * i / n)]);
+          const bounds = [vals[0], ...breaks, vals[vals.length - 1]];
+          const ramp = rc.ramp, fmt = fmtByType[ind.format] || fmtNum, infos = [];
+          for (let i = 0; i < n; i++) infos.push({
+            minValue: bounds[i], maxValue: bounds[i + 1],
+            symbol: { type: "simple-fill", color: ramp[i + 1], outline: { color: [255,255,255,0.5], width: 0.4 } },
+            label: `${fmt(bounds[i])} – ${fmt(bounds[i + 1])}`,
+          });
+          layer.renderer = {
+            type: "class-breaks", field: ind.field || undefined, valueExpression: ind.expr || undefined,
+            classBreakInfos: infos,
+            defaultSymbol: { type: "simple-fill", color: [200,200,200,0.4], outline: { color: [255,255,255,0.4], width: 0.3 } },
+            defaultLabel: "No data",
+          };
+          layer.popupTemplate = {
+            title: "Block Group {GEOID10}",
+            content: ind.field ? `${ind.label}: {expression/val}` : `${ind.label}: computed`,
+            expressionInfos: ind.field ? [{ name: "val", expression: `Text($feature.${ind.field})` }] : [],
+          };
+          legendBox.innerHTML = `<strong>${ind.label}</strong><br>` +
+            infos.map(i => `<span style="display:inline-flex;align-items:center;gap:5px;margin:1px 8px 1px 0;"><span style="width:11px;height:11px;background:${i.symbol.color};border:1px solid #ccc;"></span>${i.label}</span>`).join("");
+        } catch (e) { legendBox.textContent = "Could not load indicator: " + e.message; }
+      }
+
+      /* ---- housing layer toggles (with live match-count badges) --------- */
+      const ht = document.getElementById("housingToggles");
+      const toggleState = {}, countBadges = {};
+      HOUSING_LAYERS.forEach(cfg => {
+        toggleState[cfg.id] = cfg.visible;
+        const label = document.createElement("label");
+        const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = cfg.visible;
+        cb.addEventListener("change", () => { toggleState[cfg.id] = cb.checked; applyFilters(); });
+        const txt = cfg.deidentified ? cfg.title + " (approx.)" : cfg.title;
+        const badge = document.createElement("span"); badge.className = "lyr-count"; badge.textContent = "…";
+        countBadges[cfg.id] = badge;
+        label.append(cb, document.createTextNode(" " + txt), badge);
+        ht.appendChild(label);
+      });
+
+      /* ---- cross-layer filters ------------------------------------------ *
+       * Each filter maps to a field on the layers that HAVE it. A layer that
+       * lacks a field for an active filter is HIDDEN on the map while that
+       * filter is active, and its count badge reads "N/A" (not 0).           */
+      const devLayer = housing.housing_development;
+      const FILTERABLE = {
+        housing_development:  { year: DEV_FIELDS.fiscalYear,   status: DEV_FIELDS.projectStatus,   funding: DEV_FIELDS.fundingSource,   devType: DEV_FIELDS.developmentType, district: DEV_FIELDS.council,   ncod: DEV_FIELDS.ncod,   loan: DEV_FIELDS.loanAmount },
+        homeowner_rehabs:     { year: REHAB_FIELDS.fiscalYear, status: REHAB_FIELDS.projectStatus, funding: REHAB_FIELDS.fundingSource, devType: null,                       district: REHAB_FIELDS.council, ncod: REHAB_FIELDS.ncod, loan: REHAB_FIELDS.loanAmount },
+        homebuyer_assistance: { year: HBA_FIELDS.fiscalYear,   status: HBA_FIELDS.projectStatus,   funding: HBA_FIELDS.fundingSource,   devType: null,                       district: HBA_FIELDS.council,   ncod: HBA_FIELDS.ncod,   loan: HBA_FIELDS.loanAmount },
+        other_housing_impact: { year: OTHER_FIELDS.fiscalYear, status: OTHER_FIELDS.projectStatus, funding: null,                       devType: null,                       district: OTHER_FIELDS.council, ncod: OTHER_FIELDS.ncod, loan: null },
+      };
+      const [fYear, fStatus, fFunding, fDevType, fDistrict, fNcod] =
+        ["fYear", "fStatus", "fFunding", "fDevType", "fDistrict", "fNcod"].map(id => document.getElementById(id));
+
+      const fillSel = (sel, vals) => vals.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); });
+      // distinct values unioned across every housing layer that has the field
+      async function unionDistinct(filterKey, keepNone) {
+        const set = new Set();
+        for (const cfg of HOUSING_LAYERS) {
+          const field = FILTERABLE[cfg.id][filterKey];
+          if (!field) continue;
+          const layer = housing[cfg.id];
+          const q = layer.createQuery();
+          q.where = "1=1"; q.outFields = [field]; q.returnDistinctValues = true; q.returnGeometry = false;
+          try { (await layer.queryFeatures(q)).features.forEach(f => {
+            let v = f.attributes[field]; v = (v == null) ? "" : String(v).trim();
+            if (!v || (!keepNone && v === "None")) return;
+            set.add(v);
+          }); } catch (e) {}
+        }
+        return [...set].sort((a, b) => (a === "None") - (b === "None") || a.localeCompare(b));
+      }
+      await Promise.all(HOUSING_LAYERS.map(c => housing[c.id].load()));
+      fillSel(fYear,     await unionDistinct("year"));
+      fillSel(fFunding,  await unionDistinct("funding"));
+      fillSel(fDevType,  await unionDistinct("devType"));
+      fillSel(fDistrict, await unionDistinct("district"));
+      (await unionDistinct("ncod", true)).forEach(v => {
+        const o = document.createElement("option"); o.value = v;
+        o.textContent = v === "None" ? "None (outside any NCOD)" : v; fNcod.appendChild(o);
+      });
+
+      /* ---- City-funding slider (City of Raleigh loan $) ------------------ */
+      const loanMinR = document.getElementById("loanMinR"), loanMaxR = document.getElementById("loanMaxR");
+      const loanMinN = document.getElementById("loanMinN"), loanMaxN = document.getElementById("loanMaxN");
+      const loanFill = document.getElementById("loanFill"), loanLabel = document.getElementById("loanLabel");
+      async function loanBound() {
+        let mx = 0;
+        for (const id of ["housing_development", "homeowner_rehabs", "homebuyer_assistance"]) {
+          const layer = housing[id];
+          try {
+            const q = layer.createQuery(); q.where = "1=1"; q.returnGeometry = false;
+            q.outStatistics = [{ statisticType: "max", onStatisticField: FILTERABLE[id].loan, outStatisticFieldName: "mx" }];
+            const r = await layer.queryFeatures(q); const v = r.features[0] && r.features[0].attributes.mx;
+            if (v != null) mx = Math.max(mx, v);
+          } catch (e) {}
+        }
+        return Math.max(1000, Math.ceil(mx / 10000) * 10000);
+      }
+      const LOAN_MAX = await loanBound(), LOAN_STEP = 1000;
+      [loanMinR, loanMaxR].forEach(s => { s.min = 0; s.max = LOAN_MAX; s.step = LOAN_STEP; });
+      loanMinR.value = 0; loanMaxR.value = LOAN_MAX; loanMinN.max = LOAN_MAX; loanMaxN.max = LOAN_MAX;
+      const loanIsActive = () => (+loanMinR.value > 0) || (+loanMaxR.value < LOAN_MAX);
+      function updateLoanUI() {
+        const lo = +loanMinR.value, hi = +loanMaxR.value;
+        loanFill.style.left = (lo / LOAN_MAX * 100) + "%";
+        loanFill.style.width = ((hi - lo) / LOAN_MAX * 100) + "%";
+        loanMinN.value = lo; loanMaxN.value = hi;
+        loanLabel.textContent = loanIsActive() ? `${fmtMoney(lo)} – ${fmtMoney(hi)}` : `Any amount (up to ${fmtMoney(LOAN_MAX)})`;
+      }
+      function clampFromRange(which) {
+        let lo = +loanMinR.value, hi = +loanMaxR.value;
+        if (lo > hi) { if (which === "min") loanMaxR.value = lo; else loanMinR.value = hi; }
+        updateLoanUI();
+      }
+      function applyFromNumbers() {
+        let lo = loanMinN.value === "" ? 0 : +loanMinN.value;
+        let hi = loanMaxN.value === "" ? LOAN_MAX : +loanMaxN.value;
+        if (isNaN(lo)) lo = 0; if (isNaN(hi)) hi = LOAN_MAX;
+        lo = Math.max(0, Math.min(lo, LOAN_MAX)); hi = Math.max(0, Math.min(hi, LOAN_MAX));
+        if (lo > hi) { const t = lo; lo = hi; hi = t; }
+        loanMinR.value = lo; loanMaxR.value = hi; updateLoanUI();
+      }
+      loanMinR.addEventListener("input", () => clampFromRange("min"));
+      loanMaxR.addEventListener("input", () => clampFromRange("max"));
+      loanMinR.addEventListener("change", applyFilters);
+      loanMaxR.addEventListener("change", applyFilters);
+      loanMinN.addEventListener("change", () => { applyFromNumbers(); applyFilters(); });
+      loanMaxN.addEventListener("change", () => { applyFromNumbers(); applyFilters(); });
+      updateLoanUI();
+
+      const sqlStr = (v) => "'" + String(v).replace(/'/g, "''") + "'";
+      async function applyFilters() {
+        const eq = { year: fYear.value, status: fStatus.value, funding: fFunding.value, devType: fDevType.value, district: fDistrict.value, ncod: fNcod.value };
+        const lo = +loanMinR.value, hi = +loanMaxR.value, loanActive = loanIsActive();
+        const results = await Promise.all(HOUSING_LAYERS.map(async cfg => {
+          const layer = housing[cfg.id], map = FILTERABLE[cfg.id];
+          const clauses = []; let eligible = true;
+          for (const [key, val] of Object.entries(eq)) {
+            if (!val) continue;
+            if (!map[key]) { eligible = false; break; }   // layer lacks this field → hide + N/A
+            clauses.push(`${map[key]} = ${sqlStr(val)}`);
+          }
+          if (eligible && loanActive) {
+            if (!map.loan) eligible = false;
+            else clauses.push(`${map.loan} >= ${lo} AND ${map.loan} <= ${hi}`);
+          }
+          layer.definitionExpression = clauses.length ? clauses.join(" AND ") : "1=1";
+          const show = toggleState[cfg.id] && eligible;
+          layer.visible = show;
+          let count = null;
+          if (eligible) { try { count = await layer.queryFeatureCount({ where: layer.definitionExpression }); } catch (e) { count = null; } }
+          return { id: cfg.id, eligible, count };
+        }));
+        let total = 0;
+        results.forEach(r => {
+          const badge = countBadges[r.id];
+          if (!r.eligible) {
+            badge.textContent = "N/A"; badge.classList.add("na");
+            badge.title = "This program has no field for one of the active filters, so it is hidden on the map.";
+          } else {
+            badge.textContent = (r.count == null ? "—" : r.count.toLocaleString());
+            badge.classList.remove("na");
+            badge.title = `${r.count} record(s) match the current filters`;
+            if (toggleState[r.id]) total += (r.count || 0);
+          }
+          badge.classList.toggle("off", !toggleState[r.id]);
+        });
+        document.getElementById("resultCount").innerHTML = `<strong>${total.toLocaleString()}</strong> city housing record${total === 1 ? "" : "s"} shown on the map.`;
+        // keep the dashboard district panel in sync with the map's district filter
+        syncDistrict(fDistrict.value, "map");
+        writeUrl(fDistrict.value);
+      }
+      document.getElementById("applyBtn").addEventListener("click", applyFilters);
+      document.getElementById("resetBtn").addEventListener("click", () => {
+        [fYear, fStatus, fFunding, fDevType, fDistrict, fNcod].forEach(s => (s.value = ""));
+        loanMinR.value = 0; loanMaxR.value = LOAN_MAX; updateLoanUI();
+        applyFilters();
+      });
+      fDistrict.addEventListener("change", applyFilters);
+
+      function writeUrl(dist) {
+        const p = new URLSearchParams(location.search);
+        if (dist) p.set("district", dist); else p.delete("district");
+        history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p : "") + location.hash);
+      }
+
+      /* fit to the development extent */
+      try {
+        const ext = await devLayer.queryExtent();
+        if (ext.extent) await viewEl.goTo(ext.extent.expand(1.2), { animate: false });
+      } catch (e) {}
+
+      /* =================================================================== *
+       *  DASHBOARD  — charts from the aggregate summary table (source of truth)
+       * =================================================================== */
+      Chart.defaults.font.family = "Calibri, 'Segoe UI', sans-serif";
+      Chart.defaults.color = BRAND.bodyText;
+      const SF = SUMMARY_TABLE.fields, CATS = SUMMARY_TABLE.categories;
+
+      const sumUrl = `${SUMMARY_TABLE.url}/query?where=1%3D1&outFields=*&orderByFields=${SF.endYear},${SF.quarter}&returnGeometry=false&f=json`;
+      const sumJson = await (await fetch(sumUrl)).json();
+      const sumRows = sumJson.features.map(f => f.attributes);
+
+      const combined = sumRows.filter(r => r[SF.quarterFY] === "Combined or YE");
+      const yearRows = combined.filter(r => num(r[SF.total]) > 0).sort((a, b) => num(a[SF.endYear]) - num(b[SF.endYear]));
+      const fyLabel = (r) => "FY" + String(r[SF.endYear]).slice(2);
+      const labels = yearRows.map(fyLabel);
+
+      document.getElementById("sub").textContent =
+        `Completed units by fiscal year (${labels[0]}–${labels[labels.length - 1]}), from the Housing Production Tracker (the authoritative aggregate). Pipeline is tracked from FY26 forward.`;
+
+      const sumCat = (field) => yearRows.reduce((s, r) => s + num(r[field]), 0);
+      const totalAll = yearRows.reduce((s, r) => s + num(r[SF.total]), 0);
+      const kpis = [["Total completed", totalAll], ...CATS.map(c => [c.label, sumCat(c.field)])];
+      document.getElementById("kpis").innerHTML = kpis.map(([lbl, n]) =>
+        `<div class="kpi"><div class="num">${n.toLocaleString()}</div><div class="lbl">${lbl}</div></div>`).join("");
+
+      new Chart(document.getElementById("stacked"), {
+        type: "bar",
+        data: { labels, datasets: CATS.map(c => ({ label: c.label, data: yearRows.map(r => num(r[c.field])), backgroundColor: c.color })) },
+        options: { responsive: true, maintainAspectRatio: false,
+          scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: "Units" } } },
+          plugins: { legend: { position: "bottom" } } },
+      });
+      new Chart(document.getElementById("totalByYear"), {
+        type: "bar",
+        data: { labels, datasets: [{ label: "Total completed", data: yearRows.map(r => num(r[SF.total])), backgroundColor: BRAND.midGreen }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+      });
+      new Chart(document.getElementById("share"), {
+        type: "doughnut",
+        data: { labels: CATS.map(c => c.label), datasets: [{ data: CATS.map(c => sumCat(c.field)), backgroundColor: CATS.map(c => c.color) }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } },
+      });
+      let run = 0;
+      const cum = yearRows.map(r => (run += num(r[SF.total])));
+      new Chart(document.getElementById("cumulative"), {
+        type: "line",
+        data: { labels, datasets: [{ label: "Cumulative", data: cum, borderColor: BRAND.raleighGreen, backgroundColor: "rgba(13,105,55,.12)", fill: true, tension: .25 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+      });
+
+      /* pipeline — FY26 quarters (source-of-truth table) */
+      const fy26q = sumRows.filter(r => r[SF.fiscalYear] === "2025-2026" && r[SF.quarter] !== "All")
+                           .sort((a, b) => String(a[SF.quarter]).localeCompare(String(b[SF.quarter])));
+      const pipeHasData = fy26q.some(r => num(r[SF.hdPipeline]) > 0 || num(r[SF.hrPipeline]) > 0);
+      if (pipeHasData) {
+        new Chart(document.getElementById("pipeline"), {
+          type: "bar",
+          data: {
+            labels: fy26q.map(r => r[SF.quarter]),
+            datasets: [
+              { label: "Housing development pipeline", data: fy26q.map(r => num(r[SF.hdPipeline])), backgroundColor: BRAND.navy },
+              { label: "Homeowner-rehab pipeline",     data: fy26q.map(r => num(r[SF.hrPipeline])), backgroundColor: BRAND.chartreuse },
+            ],
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } },
+            scales: { y: { title: { display: true, text: "Units in pipeline" } } } },
+        });
+      } else {
+        document.getElementById("pipeline").insertAdjacentHTML("afterend", `<div class="note">No pipeline units recorded yet for FY26.</div>`);
+      }
+
+      /* =================================================================== *
+       *  DISTRICT PANEL — aggregated from the mapped point layers (geometry)
+       * =================================================================== */
+      const PROGRAMS = [
+        { id: "housing_development", label: "Development",          F: DEV_FIELDS,   color: BRAND.raleighGreen },
+        { id: "other_housing_impact",label: "Other housing impact", F: OTHER_FIELDS, color: BRAND.amber },
+        { id: "homeowner_rehabs",    label: "Homeowner rehab",      F: REHAB_FIELDS, color: BRAND.teal },
+        { id: "homebuyer_assistance",label: "Homebuyer assistance", F: HBA_FIELDS,   color: BRAND.navy },
+      ];
+      const records = [];
+      const untagged = {};
+      for (const p of PROGRAMS) {
+        untagged[p.id] = 0;
+        const layer = housing[p.id];
+        const q = layer.createQuery();
+        q.where = "1=1"; q.returnGeometry = false;
+        q.outFields = [p.F.council, p.F.totalUnits, p.F.fiscalYear];
+        const res = await layer.queryFeatures(q);
+        res.features.forEach(f => {
+          const a = f.attributes;
+          const d = clean(a[p.F.council]);
+          if (d) records.push({ program: p.id, district: d, fiscalYear: clean(a[p.F.fiscalYear]), units: num(a[p.F.totalUnits]) || 1 });
+          else untagged[p.id]++;
+        });
+      }
+      const distSel = document.getElementById("distSel");
+      const distValues = [...new Set(records.map(r => r.district))].sort();
+      fillSel(distSel, distValues);
+
+      const missing = PROGRAMS.filter(p => untagged[p.id] > 0).map(p => `${untagged[p.id]} ${p.label.toLowerCase()}`).join(", ");
+      if (missing) document.getElementById("distCaveat").innerHTML +=
+        `<div style="margin-top:6px;">Not assigned to a district (blank/None in source, so excluded here): ${missing}.</div>`;
+
+      let distChart;
+      function renderDistrict(dist) {
+        const rows2 = dist ? records.filter(r => r.district === dist) : records;
+        const unitsOf = (id) => rows2.filter(r => r.program === id).reduce((s, r) => s + r.units, 0);
+        const kpi = [["Total units (mapped)", rows2.reduce((s, r) => s + r.units, 0)], ...PROGRAMS.map(p => [p.label, unitsOf(p.id)])];
+        document.getElementById("distKpis").innerHTML = kpi.map(([l, v]) =>
+          `<div class="kpi"><div class="num">${v.toLocaleString()}</div><div class="lbl">${l}</div></div>`).join("");
+
+        let labels2, title;
+        if (!dist) { labels2 = distValues; title = "Units by district and program (mapped points)"; }
+        else { labels2 = [...new Set(rows2.map(r => r.fiscalYear).filter(Boolean))].sort(); title = `${dist}: units by fiscal year and program (mapped points)`; }
+        const datasets = PROGRAMS.map(p => ({
+          label: p.label, backgroundColor: p.color,
+          data: labels2.map(lbl => rows2.filter(r => r.program === p.id && (dist ? r.fiscalYear === lbl : r.district === lbl)).reduce((s, r) => s + r.units, 0)),
+        }));
+        document.getElementById("distChartTitle").textContent = title;
+        if (distChart) distChart.destroy();
+        distChart = new Chart(document.getElementById("distChart"), {
+          type: "bar", data: { labels: labels2, datasets },
+          options: { responsive: true, maintainAspectRatio: false,
+            scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: "Units" } } },
+            plugins: { legend: { position: "bottom" } } },
+        });
+      }
+
+      /* keep the two district selectors + URL in sync (single page) */
+      let syncing = false;
+      function syncDistrict(val, origin) {
+        if (syncing) return; syncing = true;
+        if (distValues.includes(val) || val === "") distSel.value = val;
+        if ([...fDistrict.options].some(o => o.value === val) || val === "") fDistrict.value = val;
+        renderDistrict(distSel.value);
+        syncing = false;
+      }
+      distSel.addEventListener("change", () => {
+        renderDistrict(distSel.value);
+        if ([...fDistrict.options].some(o => o.value === distSel.value) || distSel.value === "") {
+          fDistrict.value = distSel.value; applyFilters();
+        } else { writeUrl(distSel.value); }
+      });
+
+      /* seed from URL */
+      const urlDist = new URLSearchParams(location.search).get("district") || "";
+      if (urlDist) { if ([...fDistrict.options].some(o => o.value === urlDist)) fDistrict.value = urlDist; distSel.value = distValues.includes(urlDist) ? urlDist : ""; }
+      renderDistrict(distSel.value);
+      await applyFilters();
+
+      const updated = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
+      document.getElementById("footer").innerHTML =
+        `Source: <em>Housing Production Tracker</em> aggregate table (hosted). Completed units exclude pipeline; ` +
+        `pipeline is reported only from FY26 forward (per HCD rules). Latest quarterly update in source: ${updated}. ` +
+        `Mapped-point counts (district panel) are geometry-derived and will not reconcile to this table. ` +
+        `Prototype (V2) — template for staff use, not an approved public release. Brand: City of Raleigh (DesignTeam@raleighnc.gov).`;
+    </script>
+  </body>
+</html>
