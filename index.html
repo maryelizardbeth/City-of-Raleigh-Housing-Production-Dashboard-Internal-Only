@@ -230,6 +230,51 @@
         <div class="chart-box"><canvas id="distChart"></canvas></div>
       </div>
 
+      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">2020 Housing Bond funds</h2>
+      <div><span class="src-badge">Source: 2020 Bond Tracker (f_2020_Bond_Tracker_Bond_2020_Totals)</span></div>
+      <div class="caveat" id="bondCaveat" style="margin-top:8px;">Note: 2020 Bond figures come from a separate source than the Housing Production Tracker and count both completed and pipeline units, so these totals won't match the other charts.</div>
+      <div class="card wide" style="margin-top:12px;">
+        <div class="table-scroll"><table class="data-table" id="bond2020Table"></table></div>
+        <div class="note" style="margin-top:10px;">Units and totals from the 2020 Bond Tracker table.</div>
+      </div>
+
+      <!-- Bond visualizations: keep stacked units chart and pivot table only (no CSV exports) -->
+      <div class="card-grid">
+        <div class="card bond wide">
+          <h4>2020 Bonds Units by fiscal year (by 2020 Bond Category)</h4>
+          <div class="chart-box"><canvas id="bondStackedUnits" style="height:240px;"></canvas></div>
+        </div>
+        <div class="card bond wide">
+          <h4>2020 Bond Tracker Pivot</h4>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <label for="pivotMetric">Metric</label>
+            <select id="pivotMetric" style="margin-left:6px;padding:6px;font:inherit;"><option value="Total_Units">Units</option><option value="Funds_Available">Funds available</option><option value="Funds_Committed">Funds committed</option></select>
+          </div>
+          <div class="table-scroll"><table class="data-table" id="bondPivotTable"></table></div>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px;color:var(--raleigh-green);">2020 Bond development — project views</h3>
+      <div class="card-grid">
+        <div class="card wide">
+          <h4>Project summary</h4>
+          <div class="kpi-row" id="bondDevKpis" style="margin-top:6px;"></div>
+          <div class="note" style="margin-top:8px;">Listing shows projects that have a 2020 Bond amount &gt; 0. Financial fields are intentionally excluded.</div>
+        </div>
+        <div class="card">
+          <h4>Units by 2020 Bond Category</h4>
+          <div class="chart-box"><canvas id="bondDevByCategory"></canvas></div>
+        </div>
+        <div class="card">
+          <h4>Units by project status</h4>
+          <div class="chart-box"><canvas id="bondDevByStatus"></canvas></div>
+        </div>
+        <div class="card wide">
+          <h4>Project listing (scrollable)</h4>
+          <div class="table-scroll"><table class="data-table" id="bondDevList"></table></div>
+        </div>
+      </div>
+
       <div class="footer-note" id="footer"></div>
     </div>
 
@@ -814,6 +859,130 @@
       tbody += `<tr class="total-row"><td>Total completed</td>${colTotals.map(v => `<td>${v.toLocaleString()}</td>`).join("")}<td class="total-col">${colTotals.reduce((s, n) => s + n, 0).toLocaleString()}</td></tr></tbody>`;
       document.getElementById("catTable").innerHTML = thead + tbody;
 
+      // --------------- 2020 Bond totals table (years as rows, categories as columns) ---------------
+      try {
+        const bondUrl = 'https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/f_2020_Bond_Tracker_Bond_2020_Totals/FeatureServer/0/query?where=1%3D1&outFields=Bond_2020_Category,Fiscal_Year,End_Year,Total_Units,Funds_Available,Funds_Committed&orderByFields=End_Year&returnGeometry=false&f=json';
+        const bondJson = await (await fetch(bondUrl)).json();
+        const bondRows = bondJson.features.map(f => f.attributes);
+
+        // Years (rows) and categories (columns)
+        const years = Array.from(new Set(bondRows.map(r => r.End_Year).filter(v => v !== null))).sort((a, b) => a - b);
+        const yearLabels = years.map(y => 'FY' + String(y).slice(2));
+
+        // Allowed categories and normalization / mapping helper to avoid "Not specified" and to normalize variants
+        const ALLOWED_CATS = ["Homeowner Rehab","Public Private Partnerships","LIHTC Gap","Preservation","Homebuyer Assistance"];
+        const normalize = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const mapCategory = raw => {
+          const r = normalize(raw);
+          for (const ac of ALLOWED_CATS) {
+            const an = normalize(ac);
+            if (!r) continue;
+            if (r === an || r.includes(an) || an.includes(r)) return ac;
+          }
+          return null;
+        };
+
+        // derive categories present in the data but limited to the allowed list, in the specified order
+        const categories = ALLOWED_CATS.filter(ac => bondRows.some(r => mapCategory(r.Bond_2020_Category || r.Funding_Source) === ac));
+
+        // Header: first row has category groupings (each spans 3 cols for Units / Funds available / Funds committed)
+        const headerTop = `<thead><tr><th rowspan="2">Fiscal year</th>${categories.map(c => `<th colspan="3">${c}</th>`).join('')}<th colspan="3">Totals</th></tr>`;
+        const headerBottom = `<tr>${categories.map(() => `<th>Units</th><th>Funds available</th><th>Funds committed</th>`).join('')}<th>Units</th><th>Funds available</th><th>Funds committed</th></tr></thead>`;
+
+        let rowsHtml = '<tbody>';
+        years.forEach((y, yi) => {
+          let row = `<tr><td>${yearLabels[yi]}</td>`;
+          let yearUnitsTotal = 0, yearFundsAvailableTotal = 0, yearFundsCommittedTotal = 0;
+          categories.forEach(cat => {
+            const matches = bondRows.filter(r => mapCategory(r.Bond_2020_Category || r.Funding_Source) === cat && r.End_Year === y);
+            const units = matches.reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+            const fundsAvailable = matches.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+            const fundsCommitted = matches.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+            yearUnitsTotal += units; yearFundsAvailableTotal += fundsAvailable; yearFundsCommittedTotal += fundsCommitted;
+            row += `<td>${units.toLocaleString()}</td><td>$${fundsAvailable.toLocaleString()}</td><td>$${fundsCommitted.toLocaleString()}</td>`;
+          });
+          row += `<td class="total-col">${yearUnitsTotal.toLocaleString()}</td><td class="total-col">$${yearFundsAvailableTotal.toLocaleString()}</td><td class="total-col">$${yearFundsCommittedTotal.toLocaleString()}</td></tr>`;
+          rowsHtml += row;
+        });
+
+        // Grand totals row (all years)
+        const grandUnits = bondRows.reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+        const grandFundsAvailable = bondRows.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+        const grandFundsCommitted = bondRows.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+
+        rowsHtml += `<tr class="total-row"><td>Total (all years)</td>`;
+        // For grand totals per category across all years
+        categories.forEach(cat => {
+          const matches = bondRows.filter(r => mapCategory(r.Bond_2020_Category || r.Funding_Source) === cat);
+          const units = matches.reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+          const fundsAvailable = matches.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+          const fundsCommitted = matches.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+          rowsHtml += `<td>${units.toLocaleString()}</td><td>$${fundsAvailable.toLocaleString()}</td><td>$${fundsCommitted.toLocaleString()}</td>`;
+        });
+        rowsHtml += `<td class="total-col">${grandUnits.toLocaleString()}</td><td class="total-col">$${grandFundsAvailable.toLocaleString()}</td><td class="total-col">$${grandFundsCommitted.toLocaleString()}</td></tr>`;
+
+        rowsHtml += '</tbody>';
+        document.getElementById('bond2020Table').innerHTML = headerTop + headerBottom + rowsHtml;
+
+        /* -------------------------- Build visualizations ------------------------- */
+        // Prepare matrices
+        const catList = categories; // preserved from above
+        const yearList = years;
+        const unitsMat = yearList.map(y => catList.map(c => {
+          return bondRows.filter(r => mapCategory(r.Bond_2020_Category || r.Funding_Source) === c && r.End_Year === y)
+                         .reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+        }));
+        const fundsAvailableMat = yearList.map(y => catList.map(c => {
+          return bondRows.filter(r => mapCategory(r.Bond_2020_Category || r.Funding_Source) === c && r.End_Year === y)
+                         .reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+        }));
+        const fundsCommittedMat = yearList.map(y => catList.map(c => {
+          return bondRows.filter(r => mapCategory(r.Bond_2020_Category || r.Funding_Source) === c && r.End_Year === y)
+                         .reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+        }));
+
+        // Color palette (repeat if needed)
+        const palette = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber, BRAND.rust, BRAND.navy];
+        const catColors = catList.map((c, i) => palette[i % palette.length]);
+
+        // 1) Stacked bar (units)
+        const stackedDatasets = catList.map((c, i) => ({ label: c, data: yearList.map((y, yi) => unitsMat[yi][i]), backgroundColor: catColors[i] }));
+        if (window.bondStackedChart) window.bondStackedChart.destroy();
+        window.bondStackedChart = new Chart(document.getElementById('bondStackedUnits'), {
+          type: 'bar', data: { labels: yearList.map(y => 'FY' + String(y).slice(2)), datasets: stackedDatasets },
+          options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Units' } } }, plugins: { legend: { position: 'bottom' } } },
+        });
+
+        // 2) (removed) Grouped bars, small multiples, and heatmap — not used in this configuration
+
+        // 5) Pivot table: years rows, categories columns for chosen metric
+        function renderPivot(metricField) {
+          const header = `<thead><tr><th>Fiscal year</th>${catList.map(c => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead>`;
+          let body = '<tbody>';
+          yearList.forEach((y, yi) => {
+            let row = `<tr><td>FY${String(y).slice(2)}</td>`;
+            let yearTotal = 0;
+            catList.forEach((c, ci) => {
+              const val = bondRows.filter(r => mapCategory(r.Bond_2020_Category || r.Funding_Source) === c && r.End_Year === y)
+                                  .reduce((s, r) => s + (Number(r[metricField]) || 0), 0);
+              yearTotal += val;
+              row += `<td>${metricField === 'Total_Units' ? val.toLocaleString() : '$' + val.toLocaleString()}</td>`;
+            });
+            row += `<td class="total-col">${metricField === 'Total_Units' ? yearTotal.toLocaleString() : '$' + yearTotal.toLocaleString()}</td></tr>`;
+            body += row;
+          });
+          body += '</tbody>';
+          document.getElementById('bondPivotTable').innerHTML = header + body;
+        }
+        const pivotSel = document.getElementById('pivotMetric'); pivotSel.addEventListener('change', (e) => renderPivot(e.target.value));
+        renderPivot('Total_Units');
+
+      } catch (e) {
+        document.getElementById('bond2020Table').innerHTML = '<tbody><tr><td>Unable to load 2020 Bond totals.</td></tr></tbody>';
+        console.error('Bond table load error', e);
+      }
+
+
       new Chart(document.getElementById("stacked"), {
         type: "bar",
         data: { labels, datasets: CATS.map(c => ({ label: c.label, data: yearRows.map(r => num(r[c.field])), backgroundColor: c.color })) },
@@ -928,6 +1097,77 @@
           ` <br><strong>Story:</strong> the 2020 Housing Bond has funded <strong>${fmtNum(bondUnits)}</strong> units across ` +
           `<strong>${bondProjects}</strong> projects (${fmtMoney(bondDollars)} committed on the mapped layers).`;
       } catch (e) { document.getElementById("bondCaveat").innerHTML += ` (Bond figures could not be loaded: ${e.message})`; }
+
+      /* -------------------- 2020 Bond Development (FeatureServer) -------------------- */
+      try {
+        const devUrl = 'https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/f_2020_Bond_Tracker_Housing_Development_2020/FeatureServer/0/query?where=Funds_Committed%20%3E%200&outFields=*&returnGeometry=false&f=json';
+        const devJson = await (await fetch(devUrl)).json();
+        const devRows = devJson.features.map(f => f.attributes || {});
+
+        // local color palette for these charts
+        const palette = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber, BRAND.rust, BRAND.navy];
+
+        const pick = (a, candidates) => { for (const c of candidates) { if (a[c] != null && String(a[c]).trim() !== '') return a[c]; } return null; };
+        const nameFields = [DEV_FIELDS.project, 'ProjectName','PROJECT_NAME','Project','Name','PROJECT'];
+        const fyFields = ['Fiscal_Year','FiscalYear','End_Year','END_YEAR','FiscalYear_Formatted'];
+        const unitFields = ['Total_Units','TotalUnits','UNITS','Units','TOTAL_UNITS'];
+        const catFields = ['Bond_2020_Category','BondCategory','Funding_Source','FundingSource'];
+        const statusFields = [DEV_FIELDS.projectStatus,'Status','PROJECT_STATUS','ProjectStatus','projectStatus'];
+
+        // summary KPIs (no monetary fields)
+        const totalProjects = devRows.length;
+        const totalUnits = devRows.reduce((s, r) => s + (Number(pick(r, unitFields)) || 0), 0);
+        const distinctCats = [...new Set(devRows.map(r => (pick(r, catFields) || '').trim()).filter(Boolean))];
+        document.getElementById('bondDevKpis').innerHTML = `
+          <div class="kpi"><div class="num">${totalProjects.toLocaleString()}</div><div class="lbl">Projects (bond-funded)</div></div>
+          <div class="kpi"><div class="num">${totalUnits.toLocaleString()}</div><div class="lbl">Total units (mapped)</div></div>
+          <div class="kpi"><div class="num">${distinctCats.length}</div><div class="lbl">Bond categories</div></div>`;
+
+        // Units by category
+        const byCat = {};
+        devRows.forEach(r => {
+          const c = (pick(r, catFields) || 'Other').toString();
+          const u = Number(pick(r, unitFields)) || 0;
+          byCat[c] = (byCat[c] || 0) + u;
+        });
+        const catLabels = Object.keys(byCat).sort();
+        const catData = catLabels.map(l => byCat[l]);
+        if (window.bondDevCatChart) window.bondDevCatChart.destroy();
+        window.bondDevCatChart = new Chart(document.getElementById('bondDevByCategory'), {
+          type: 'bar', data: { labels: catLabels, datasets: [{ label: 'Units', data: catData, backgroundColor: catLabels.map((_,i) => palette[i % palette.length]) }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Bond category' } }, y: { title: { display: true, text: 'Units' } } } },
+        });
+
+        // Units by status
+        const byStatus = {};
+        devRows.forEach(r => {
+          const s = (pick(r, statusFields) || 'Unknown').toString();
+          const u = Number(pick(r, unitFields)) || 0;
+          byStatus[s] = (byStatus[s] || 0) + u;
+        });
+        const statusLabels = Object.keys(byStatus).sort();
+        const statusData = statusLabels.map(l => byStatus[l]);
+        if (window.bondDevStatusChart) window.bondDevStatusChart.destroy();
+        window.bondDevStatusChart = new Chart(document.getElementById('bondDevByStatus'), {
+          type: 'bar', data: { labels: statusLabels, datasets: [{ label: 'Units', data: statusData, backgroundColor: statusLabels.map((_,i) => palette[(i+2) % palette.length]) }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Status' } }, y: { title: { display: true, text: 'Units' } } } },
+        });
+
+        // Scrollable project listing — exclude monetary/funding amount fields
+        const rows = devRows.sort((a,b) => (''+pick(b, fyFields)).localeCompare(''+pick(a, fyFields)));
+        let tbl = `<thead><tr><th>Project</th><th>Fiscal year</th><th>Units</th><th>Bond category</th><th>Status</th></tr></thead><tbody>`;
+        rows.forEach(r => {
+          const proj = pick(r, nameFields) || '—';
+          const fy = pick(r, fyFields) || '';
+          const u = Number(pick(r, unitFields)) || 0;
+          const bc = pick(r, catFields) || '—';
+          const st = pick(r, statusFields) || '—';
+          tbl += `<tr><td>${proj}</td><td>${fy}</td><td>${u.toLocaleString()}</td><td>${bc}</td><td>${st}</td></tr>`;
+        });
+        tbl += '</tbody>';
+        document.getElementById('bondDevList').innerHTML = tbl;
+
+      } catch (e) { console.error('Bond development list load error', e); document.getElementById('bondDevKpis').innerHTML = '<div class="note">Could not load 2020 Bond development projects.</div>'; }
 
       /* =================================================================== *
        *  DISTRICT PANEL — aggregated from the mapped point layers (geometry)
