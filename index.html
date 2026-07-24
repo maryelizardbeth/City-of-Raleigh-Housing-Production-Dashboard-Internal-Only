@@ -821,47 +821,55 @@
       tbody += `<tr class="total-row"><td>Total completed</td>${colTotals.map(v => `<td>${v.toLocaleString()}</td>`).join("")}<td class="total-col">${colTotals.reduce((s, n) => s + n, 0).toLocaleString()}</td></tr></tbody>`;
       document.getElementById("catTable").innerHTML = thead + tbody;
 
-      // --------------- 2020 Bond totals table (from hosted bond tracker table) ---------------
+      // --------------- 2020 Bond totals table (years as rows, categories as columns) ---------------
       try {
         const bondUrl = 'https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/f_2020_Bond_Tracker_Bond_2020_Totals/FeatureServer/0/query?where=1%3D1&outFields=Bond_2020_Category,Fiscal_Year,End_Year,Total_Units,Funds_Available,Funds_Committed&orderByFields=End_Year&returnGeometry=false&f=json';
         const bondJson = await (await fetch(bondUrl)).json();
         const bondRows = bondJson.features.map(f => f.attributes);
+
+        // Years (rows) and categories (columns)
         const years = Array.from(new Set(bondRows.map(r => r.End_Year).filter(v => v !== null))).sort((a, b) => a - b);
         const yearLabels = years.map(y => 'FY' + String(y).slice(2));
         const categories = Array.from(new Set(bondRows.map(r => r.Bond_2020_Category || r.Funding_Source || 'Not specified')));
 
-        // Build a two-row header: year columns each have Units + Funds, then Totals (Units, Funds Available, Funds Committed)
-        const topHeader = `<thead><tr><th rowspan="2">Category</th>${yearLabels.map(l => `<th colspan="2">${l}</th>`).join('')}<th colspan="3">Totals</th></tr>` +
-                          `<tr>${years.map(() => `<th>Units</th><th>Funds</th>`).join('')}<th>Units</th><th>Funds available</th><th>Funds committed</th></tr></thead>`;
+        // Header: first row has category groupings (each spans 3 cols for Units / Funds available / Funds committed)
+        const headerTop = `<thead><tr><th rowspan="2">Fiscal year</th>${categories.map(c => `<th colspan="3">${c}</th>`).join('')}<th colspan="3">Totals</th></tr>`;
+        const headerBottom = `<tr>${categories.map(() => `<th>Units</th><th>Funds available</th><th>Funds committed</th>`).join('')}<th>Units</th><th>Funds available</th><th>Funds committed</th></tr></thead>`;
 
-        let btbody = '<tbody>';
-        categories.forEach(cat => {
-          // Per-year units and funds (use Funds_Committed as the per-year 'Funds' column)
-          const valsUnits = years.map(y => bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
-                                                  .reduce((s, r) => s + (Number(r.Total_Units) || 0), 0));
-          const valsFunds = years.map(y => bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
-                                                  .reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0));
-          const totUnits = valsUnits.reduce((s, n) => s + n, 0);
-          const totFundsAvailable = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat)
-                                            .reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
-          const totFundsCommitted = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat)
-                                            .reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
-
-          btbody += `<tr><td>${cat}</td>${years.map((y, i) => `<td>${valsUnits[i].toLocaleString()}</td><td>$${valsFunds[i].toLocaleString()}</td>`).join('')}<td class="total-col">${totUnits.toLocaleString()}</td><td class="total-col">$${totFundsAvailable.toLocaleString()}</td><td class="total-col">$${totFundsCommitted.toLocaleString()}</td></tr>`;
+        let rowsHtml = '<tbody>';
+        years.forEach((y, yi) => {
+          let row = `<tr><td>${yearLabels[yi]}</td>`;
+          let yearUnitsTotal = 0, yearFundsAvailableTotal = 0, yearFundsCommittedTotal = 0;
+          categories.forEach(cat => {
+            const matches = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y);
+            const units = matches.reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+            const fundsAvailable = matches.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+            const fundsCommitted = matches.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+            yearUnitsTotal += units; yearFundsAvailableTotal += fundsAvailable; yearFundsCommittedTotal += fundsCommitted;
+            row += `<td>${units.toLocaleString()}</td><td>$${fundsAvailable.toLocaleString()}</td><td>$${fundsCommitted.toLocaleString()}</td>`;
+          });
+          row += `<td class="total-col">${yearUnitsTotal.toLocaleString()}</td><td class="total-col">$${yearFundsAvailableTotal.toLocaleString()}</td><td class="total-col">$${yearFundsCommittedTotal.toLocaleString()}</td></tr>`;
+          rowsHtml += row;
         });
 
-        // Column totals per year (units and funds) and grand totals
-        const colUnitsTotals = years.map(y => categories.reduce((s, cat) => s + bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
-                                                                                                              .reduce((ss, r) => ss + (Number(r.Total_Units) || 0), 0), 0));
-        const colFundsTotals = years.map(y => categories.reduce((s, cat) => s + bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
-                                                                                                              .reduce((ss, r) => ss + (Number(r.Funds_Committed) || 0), 0), 0));
-        const totalUnitsAll = colUnitsTotals.reduce((s, n) => s + n, 0);
-        const totalFundsAvailableAll = bondRows.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
-        const totalFundsCommittedAll = bondRows.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+        // Grand totals row (all years)
+        const grandUnits = bondRows.reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+        const grandFundsAvailable = bondRows.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+        const grandFundsCommitted = bondRows.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
 
-        btbody += `<tr class="total-row"><td>Total</td>${years.map((y, i) => `<td>${colUnitsTotals[i].toLocaleString()}</td><td>$${colFundsTotals[i].toLocaleString()}</td>`).join('')}<td class="total-col">${totalUnitsAll.toLocaleString()}</td><td class="total-col">$${totalFundsAvailableAll.toLocaleString()}</td><td class="total-col">$${totalFundsCommittedAll.toLocaleString()}</td></tr></tbody>`;
+        rowsHtml += `<tr class="total-row"><td>Total (all years)</td>`;
+        // For grand totals per category across all years
+        categories.forEach(cat => {
+          const matches = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat);
+          const units = matches.reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+          const fundsAvailable = matches.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+          const fundsCommitted = matches.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+          rowsHtml += `<td>${units.toLocaleString()}</td><td>$${fundsAvailable.toLocaleString()}</td><td>$${fundsCommitted.toLocaleString()}</td>`;
+        });
+        rowsHtml += `<td class="total-col">${grandUnits.toLocaleString()}</td><td class="total-col">$${grandFundsAvailable.toLocaleString()}</td><td class="total-col">$${grandFundsCommitted.toLocaleString()}</td></tr>`;
 
-        document.getElementById('bond2020Table').innerHTML = topHeader + btbody;
+        rowsHtml += '</tbody>';
+        document.getElementById('bond2020Table').innerHTML = headerTop + headerBottom + rowsHtml;
       } catch (e) {
         document.getElementById('bond2020Table').innerHTML = '<tbody><tr><td>Unable to load 2020 Bond totals.</td></tr></tbody>';
         console.error('Bond table load error', e);
