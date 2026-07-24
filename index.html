@@ -230,6 +230,13 @@
         <div class="chart-box"><canvas id="distChart"></canvas></div>
       </div>
 
+      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">2020 Housing Bond funds</h2>
+      <div><span class="src-badge">Source: 2020 Bond Tracker (f_2020_Bond_Tracker_Bond_2020_Totals)</span></div>
+      <div class="card wide" style="margin-top:12px;">
+        <div class="table-scroll"><table class="data-table" id="bond2020Table"></table></div>
+        <div class="note" style="margin-top:10px;">Units and totals from the 2020 Bond Tracker table.</div>
+      </div>
+
       <div class="footer-note" id="footer"></div>
     </div>
 
@@ -813,6 +820,32 @@
       const colTotals = labels.map((_, i) => CATS.reduce((s, c) => s + num(yearRows[i][c.field]), 0));
       tbody += `<tr class="total-row"><td>Total completed</td>${colTotals.map(v => `<td>${v.toLocaleString()}</td>`).join("")}<td class="total-col">${colTotals.reduce((s, n) => s + n, 0).toLocaleString()}</td></tr></tbody>`;
       document.getElementById("catTable").innerHTML = thead + tbody;
+
+      // --------------- 2020 Bond totals table (from hosted bond tracker table) ---------------
+      try {
+        const bondUrl = 'https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/f_2020_Bond_Tracker_Bond_2020_Totals/FeatureServer/0/query?where=1%3D1&outFields=Bond_2020_Category,Fiscal_Year,End_Year,Total_Units,Funds_Available,Funds_Committed&orderByFields=End_Year&returnGeometry=false&f=json';
+        const bondJson = await (await fetch(bondUrl)).json();
+        const bondRows = bondJson.features.map(f => f.attributes);
+        const years = Array.from(new Set(bondRows.map(r => r.End_Year).filter(v => v !== null))).sort((a, b) => a - b);
+        const yearLabels = years.map(y => 'FY' + String(y).slice(2));
+        const categories = Array.from(new Set(bondRows.map(r => r.Bond_2020_Category || r.Funding_Source || 'Not specified')));
+        const bthead = `<thead><tr><th>Category</th>${yearLabels.map(l => `<th>${l}</th>`).join('')}<th class="total-col">Total</th></tr></thead>`;
+        let btbody = '<tbody>';
+        categories.forEach(cat => {
+          const vals = years.map(y => bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
+                                                 .reduce((s, r) => s + (Number(r.Total_Units) || 0), 0));
+          const tot = vals.reduce((s, n) => s + n, 0);
+          btbody += `<tr><td>${cat}</td>${vals.map(v => `<td>${v.toLocaleString()}</td>`).join('')}<td class="total-col">${tot.toLocaleString()}</td></tr>`;
+        });
+        const colTotals = years.map(y => categories.reduce((s, cat) => s + bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
+                                                                                                  .reduce((ss, r) => ss + (Number(r.Total_Units) || 0), 0), 0));
+        btbody += `<tr class="total-row"><td>Total</td>${colTotals.map(v => `<td>${v.toLocaleString()}</td>`).join('')}<td class="total-col">${colTotals.reduce((s, n) => s + n, 0).toLocaleString()}</td></tr></tbody>`;
+        document.getElementById('bond2020Table').innerHTML = bthead + btbody;
+      } catch (e) {
+        document.getElementById('bond2020Table').innerHTML = '<tbody><tr><td>Unable to load 2020 Bond totals.</td></tr></tbody>';
+        console.error('Bond table load error', e);
+      }
+
 
       new Chart(document.getElementById("stacked"), {
         type: "bar",
