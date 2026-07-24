@@ -30,6 +30,7 @@
           <p class="panel-intro">Explore where the City of Raleigh has funded, built, or preserved
           affordable housing, alongside neighborhood boundaries, transit, and market indicators.
           Click any point for project details. Scroll down for citywide production charts.</p>
+          <button class="btn" id="jumpBtn">Jump to charts ↓</button>
         </div>
 
         <div class="panel-section">
@@ -59,12 +60,28 @@
             </div>
             <div class="range-label" id="loanLabel"></div>
           </div>
+          <div class="field">
+            <label for="unitMinN">Total units per project</label>
+            <div class="range-wrap">
+              <div class="range-track"></div>
+              <div class="range-fill" id="unitFill"></div>
+              <input type="range" id="unitMinR" min="0" max="100" step="1" value="0" aria-label="Minimum units" />
+              <input type="range" id="unitMaxR" min="0" max="100" step="1" value="100" aria-label="Maximum units" />
+            </div>
+            <div class="range-inputs">
+              <input type="number" id="unitMinN" min="0" placeholder="min" />
+              <span>to</span>
+              <input type="number" id="unitMaxN" min="0" placeholder="max" />
+            </div>
+            <div class="range-label" id="unitLabel"></div>
+          </div>
           <div class="field"><label for="fDevType">Development type</label><select id="fDevType"><option value="">Any</option></select></div>
-          <div class="field"><label for="fDistrict">Council district</label><select id="fDistrict"><option value="">All districts</option></select></div>
-          <div class="field"><label for="fNcod">Neighborhood Conservation Overlay (NCOD)</label><select id="fNcod"><option value="">All areas</option></select></div>
-          <div class="btn-row">
-            <button class="btn" id="applyBtn">Apply filters</button>
-            <button class="btn secondary" id="resetBtn">Reset</button>
+          <div class="field-row">
+            <div class="field"><label for="fDistrict">Council district</label><select id="fDistrict"><option value="">All districts</option></select></div>
+            <div class="field"><label for="fNcod">NCOD overlay</label><select id="fNcod"><option value="">All areas</option></select></div>
+          </div>
+          <div class="btn-row" style="justify-content:center;">
+            <button class="btn secondary" id="resetBtn">Reset filters</button>
           </div>
           <div class="note" id="resultCount" style="margin-top:10px;"></div>
           <div class="note" style="margin-top:8px;">Filters apply to <strong>all city housing layers</strong>. A layer that lacks a
@@ -76,6 +93,13 @@
           <div class="checks" id="hudToggles"></div>
           <div class="note">Non-City-funded subsidized housing from HUD (filtered to Wake County), including
           Raleigh Housing Authority (RHA) public housing. Distinct marker shapes; City projects are circles.</div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Market Supply Indicators</h2>
+          <div class="checks" id="marketToggles"></div>
+          <div class="note" id="marketNote">Census (ACS) housing-market context by block group. More sources (non-Census)
+          will be added here later.</div>
         </div>
 
         <div class="panel-section">
@@ -126,14 +150,16 @@
     </section>
 
     <!-- ========================= DASHBOARD SECTION ======================== -->
-    <div class="section-band">
+    <div class="section-band" id="dash-top">
       <h1>Housing Production Dashboard</h1>
       <p id="sub"></p>
     </div>
 
     <div id="dashboard" class="dash-wrap">
-      <h2 style="color:var(--raleigh-green);font-size:1.05rem;margin:4px 0 4px;">Citywide production (all districts)</h2>
+      <h2 style="color:var(--raleigh-green);font-size:1.05rem;margin:4px 0 4px;">Citywide production</h2>
       <div><span class="src-badge" id="truthBadge">Source of truth: Housing Production Tracker (aggregate table)</span></div>
+      <div class="goal-note" id="goalNote"></div>
+      <div class="goal-hero" id="goalHero"></div>
       <div class="kpi-row" id="kpis" style="margin-top:14px;"></div>
 
       <div class="card-grid">
@@ -146,7 +172,10 @@
           <div class="chart-box"><canvas id="totalByYear"></canvas></div>
         </div>
         <div class="card">
-          <h3>Share of completed units by category</h3>
+          <h3 style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span>Share of completed units by category</span>
+            <select id="shareYear" style="font:inherit;font-size:.8rem;font-weight:400;padding:4px 6px;border:1px solid var(--border);border-radius:4px;"><option value="">All years</option></select>
+          </h3>
           <div class="chart-box"><canvas id="share"></canvas></div>
         </div>
         <div class="card">
@@ -154,9 +183,34 @@
           <div class="chart-box"><canvas id="cumulative"></canvas></div>
         </div>
         <div class="card">
-          <h3>Pipeline — units not yet complete (FY26)</h3>
+          <h3>Rental development — completed vs. pipeline (FY26 by quarter)</h3>
           <div class="chart-box"><canvas id="pipeline"></canvas></div>
           <div id="pipelineNote"></div>
+        </div>
+      </div>
+
+      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Completed units by program — yearly &amp; total</h2>
+      <div><span class="src-badge">Source of truth: Housing Production Tracker (aggregate table)</span></div>
+      <div class="card wide" style="margin-top:12px;">
+        <div class="table-scroll"><table class="data-table" id="catTable"></table></div>
+        <div class="note" style="margin-top:10px;">"Sum of … (yearly and total)" for each program —
+        Rental Units Constructed, Rental Units Preserved, Homeowner Rehabs, Homebuyer Assistance, and Other Housing Impact.</div>
+      </div>
+
+      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Bond production — how the 2020 Housing Bond was used</h2>
+      <div class="caveat" id="bondCaveat">
+        Derived from each project's <strong>funding fields on the mapped point layers</strong> (geometry), not the aggregate
+        tracker — so these will not reconcile to the citywide totals above. "Bond-funded" = any project with a 2020 Bond amount &gt; 0.
+      </div>
+      <div class="kpi-row" id="bondKpis" style="margin-top:14px;"></div>
+      <div class="card-grid">
+        <div class="card bond">
+          <h3>City housing units by funding source</h3>
+          <div class="chart-box"><canvas id="bondBySource"></canvas></div>
+        </div>
+        <div class="card bond">
+          <h3>2020 Bond-funded units by fiscal year</h3>
+          <div class="chart-box"><canvas id="bondByYear"></canvas></div>
         </div>
       </div>
 
@@ -192,10 +246,19 @@
         $arcgis.import("@arcgis/core/Basemap.js"),
       ]);
 
+      // "Jump to charts" button — scroll to the dashboard (wired immediately).
+      document.getElementById("jumpBtn").addEventListener("click", () =>
+        document.getElementById("dash-top").scrollIntoView({ behavior: "smooth" }));
+
       const viewEl = document.querySelector("arcgis-map");
       viewEl.center = MAP.center;
       viewEl.zoom = MAP.zoom;
-      await viewEl.viewOnReady();
+      // Wait for the map view, but don't let a slow/unavailable view block the
+      // rest of the app (filters + dashboard query the layers, not the view).
+      await Promise.race([
+        viewEl.viewOnReady().catch(() => {}),
+        new Promise((r) => setTimeout(r, 5000)),
+      ]);
 
       // Use the web map's Community (US Edition) vector basemap (public, key-free).
       if (MAP.basemap === "community") {
@@ -357,8 +420,11 @@
         hudToggles.appendChild(label);
       }
 
-      /* ---- reference layers --------------------------------------------- */
+      /* ---- reference + market-supply layers ----------------------------- *
+       * Choropleth (Census market indicators) render into their own
+       * "Market Supply Indicators" section; everything else into Reference.   */
       const refToggles = document.getElementById("refToggles");
+      const marketToggles = document.getElementById("marketToggles");
       const hexToRgba = (hex, a) => { const h = hex.replace("#", ""); return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16), a]; };
       const labelInfo = (rc) => rc.labelField ? [{
         symbol: { type: "text", color: rc.color, haloColor: "#ffffff", haloSize: 1.2, font: { size: rc.kind === "transit" ? 8 : 10, weight: "bold" } },
@@ -394,9 +460,11 @@
           fl.visible = cb.checked;
           if (rc.kind === "choropleth") indicatorWrap.style.display = cb.checked ? "" : "none";
         });
+        // Census market indicators live in their own section (like HUD).
+        const target = rc.kind === "choropleth" ? marketToggles : refToggles;
         label.append(cb, document.createTextNode(" " + rc.title));
         wrap.appendChild(label);
-        refToggles.appendChild(wrap);
+        target.appendChild(wrap);
 
         if (rc.kind === "choropleth") {
           var indicatorWrap = document.createElement("div");
@@ -407,7 +475,7 @@
           sel.value = rc.defaultIndicator;
           const legendBox = document.createElement("div"); legendBox.style.cssText = "margin-top:6px;font-size:.72rem;";
           indicatorWrap.append(sel, legendBox);
-          refToggles.appendChild(indicatorWrap);
+          target.appendChild(indicatorWrap);
           sel.addEventListener("change", () => applyChoropleth(rc, fl, sel.value, legendBox));
           applyChoropleth(rc, fl, sel.value, legendBox);
         }
@@ -459,16 +527,14 @@
 
       /* ---- housing layer toggles (with live match-count badges) --------- */
       const ht = document.getElementById("housingToggles");
-      const toggleState = {}, countBadges = {};
+      const toggleState = {};
       HOUSING_LAYERS.forEach(cfg => {
         toggleState[cfg.id] = cfg.visible;
         const label = document.createElement("label");
         const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = cfg.visible;
         cb.addEventListener("change", () => { toggleState[cfg.id] = cb.checked; applyFilters(); });
         const txt = cfg.deidentified ? cfg.title + " (approx.)" : cfg.title;
-        const badge = document.createElement("span"); badge.className = "lyr-count"; badge.textContent = "…";
-        countBadges[cfg.id] = badge;
-        label.append(cb, document.createTextNode(" " + txt), badge);
+        label.append(cb, document.createTextNode(" " + txt));
         ht.appendChild(label);
       });
 
@@ -478,10 +544,10 @@
        * filter is active, and its count badge reads "N/A" (not 0).           */
       const devLayer = housing.housing_development;
       const FILTERABLE = {
-        housing_development:  { year: DEV_FIELDS.fiscalYear,   status: DEV_FIELDS.projectStatus,   funding: DEV_FIELDS.fundingSource,   devType: DEV_FIELDS.developmentType, district: DEV_FIELDS.council,   ncod: DEV_FIELDS.ncod,   loan: DEV_FIELDS.loanAmount },
-        homeowner_rehabs:     { year: REHAB_FIELDS.fiscalYear, status: REHAB_FIELDS.projectStatus, funding: REHAB_FIELDS.fundingSource, devType: null,                       district: REHAB_FIELDS.council, ncod: REHAB_FIELDS.ncod, loan: REHAB_FIELDS.loanAmount },
-        homebuyer_assistance: { year: HBA_FIELDS.fiscalYear,   status: HBA_FIELDS.projectStatus,   funding: HBA_FIELDS.fundingSource,   devType: null,                       district: HBA_FIELDS.council,   ncod: HBA_FIELDS.ncod,   loan: HBA_FIELDS.loanAmount },
-        other_housing_impact: { year: OTHER_FIELDS.fiscalYear, status: OTHER_FIELDS.projectStatus, funding: null,                       devType: null,                       district: OTHER_FIELDS.council, ncod: OTHER_FIELDS.ncod, loan: null },
+        housing_development:  { year: DEV_FIELDS.fiscalYear,   status: DEV_FIELDS.projectStatus,   funding: DEV_FIELDS.fundingSource,   devType: DEV_FIELDS.developmentType, district: DEV_FIELDS.council,   ncod: DEV_FIELDS.ncod,   loan: DEV_FIELDS.loanAmount,   units: DEV_FIELDS.totalUnits },
+        homeowner_rehabs:     { year: REHAB_FIELDS.fiscalYear, status: REHAB_FIELDS.projectStatus, funding: REHAB_FIELDS.fundingSource, devType: null,                       district: REHAB_FIELDS.council, ncod: REHAB_FIELDS.ncod, loan: REHAB_FIELDS.loanAmount, units: REHAB_FIELDS.totalUnits },
+        homebuyer_assistance: { year: HBA_FIELDS.fiscalYear,   status: HBA_FIELDS.projectStatus,   funding: HBA_FIELDS.fundingSource,   devType: null,                       district: HBA_FIELDS.council,   ncod: HBA_FIELDS.ncod,   loan: HBA_FIELDS.loanAmount,   units: HBA_FIELDS.totalUnits },
+        other_housing_impact: { year: OTHER_FIELDS.fiscalYear, status: OTHER_FIELDS.projectStatus, funding: null,                       devType: null,                       district: OTHER_FIELDS.council, ncod: OTHER_FIELDS.ncod, loan: null,                   units: OTHER_FIELDS.totalUnits },
       };
       const [fYear, fStatus, fFunding, fDevType, fDistrict, fNcod] =
         ["fYear", "fStatus", "fFunding", "fDevType", "fDistrict", "fNcod"].map(id => document.getElementById(id));
@@ -563,10 +629,60 @@
       loanMaxN.addEventListener("change", () => { applyFromNumbers(); applyFilters(); });
       updateLoanUI();
 
+      /* ---- Units-per-project slider (Total_Units, all 4 layers) ---------- */
+      const unitMinR = document.getElementById("unitMinR"), unitMaxR = document.getElementById("unitMaxR");
+      const unitMinN = document.getElementById("unitMinN"), unitMaxN = document.getElementById("unitMaxN");
+      const unitFill = document.getElementById("unitFill"), unitLabel = document.getElementById("unitLabel");
+      async function unitBound() {
+        let mx = 0;
+        for (const cfg of HOUSING_LAYERS) {
+          const layer = housing[cfg.id];
+          try {
+            const q = layer.createQuery(); q.where = "1=1"; q.returnGeometry = false;
+            q.outStatistics = [{ statisticType: "max", onStatisticField: FILTERABLE[cfg.id].units, outStatisticFieldName: "mx" }];
+            const r = await layer.queryFeatures(q); const v = r.features[0] && r.features[0].attributes.mx;
+            if (v != null) mx = Math.max(mx, v);
+          } catch (e) {}
+        }
+        return Math.max(1, Math.ceil(mx / 10) * 10);
+      }
+      const UNIT_MAX = await unitBound();
+      [unitMinR, unitMaxR].forEach(s => { s.min = 0; s.max = UNIT_MAX; s.step = 1; });
+      unitMinR.value = 0; unitMaxR.value = UNIT_MAX; unitMinN.max = UNIT_MAX; unitMaxN.max = UNIT_MAX;
+      const unitIsActive = () => (+unitMinR.value > 0) || (+unitMaxR.value < UNIT_MAX);
+      function updateUnitUI() {
+        const lo = +unitMinR.value, hi = +unitMaxR.value;
+        unitFill.style.left = (lo / UNIT_MAX * 100) + "%";
+        unitFill.style.width = ((hi - lo) / UNIT_MAX * 100) + "%";
+        unitMinN.value = lo; unitMaxN.value = hi;
+        unitLabel.textContent = unitIsActive() ? `${fmtNum(lo)} – ${fmtNum(hi)} units` : `Any size (up to ${fmtNum(UNIT_MAX)} units)`;
+      }
+      function unitClamp(which) {
+        let lo = +unitMinR.value, hi = +unitMaxR.value;
+        if (lo > hi) { if (which === "min") unitMaxR.value = lo; else unitMinR.value = hi; }
+        updateUnitUI();
+      }
+      function unitFromNumbers() {
+        let lo = unitMinN.value === "" ? 0 : +unitMinN.value;
+        let hi = unitMaxN.value === "" ? UNIT_MAX : +unitMaxN.value;
+        if (isNaN(lo)) lo = 0; if (isNaN(hi)) hi = UNIT_MAX;
+        lo = Math.max(0, Math.min(lo, UNIT_MAX)); hi = Math.max(0, Math.min(hi, UNIT_MAX));
+        if (lo > hi) { const t = lo; lo = hi; hi = t; }
+        unitMinR.value = lo; unitMaxR.value = hi; updateUnitUI();
+      }
+      unitMinR.addEventListener("input", () => unitClamp("min"));
+      unitMaxR.addEventListener("input", () => unitClamp("max"));
+      unitMinR.addEventListener("change", applyFilters);
+      unitMaxR.addEventListener("change", applyFilters);
+      unitMinN.addEventListener("change", () => { unitFromNumbers(); applyFilters(); });
+      unitMaxN.addEventListener("change", () => { unitFromNumbers(); applyFilters(); });
+      updateUnitUI();
+
       const sqlStr = (v) => "'" + String(v).replace(/'/g, "''") + "'";
       async function applyFilters() {
         const eq = { year: fYear.value, status: fStatus.value, funding: fFunding.value, devType: fDevType.value, district: fDistrict.value, ncod: fNcod.value };
         const lo = +loanMinR.value, hi = +loanMaxR.value, loanActive = loanIsActive();
+        const ulo = +unitMinR.value, uhi = +unitMaxR.value, unitActive = unitIsActive();
         const results = await Promise.all(HOUSING_LAYERS.map(async cfg => {
           const layer = housing[cfg.id], map = FILTERABLE[cfg.id];
           const clauses = []; let eligible = true;
@@ -579,39 +695,31 @@
             if (!map.loan) eligible = false;
             else clauses.push(`${map.loan} >= ${lo} AND ${map.loan} <= ${hi}`);
           }
+          if (eligible && unitActive) {
+            if (!map.units) eligible = false;
+            else clauses.push(`${map.units} >= ${ulo} AND ${map.units} <= ${uhi}`);
+          }
           layer.definitionExpression = clauses.length ? clauses.join(" AND ") : "1=1";
           const show = toggleState[cfg.id] && eligible;
           layer.visible = show;
-          let count = null;
-          if (eligible) { try { count = await layer.queryFeatureCount({ where: layer.definitionExpression }); } catch (e) { count = null; } }
-          return { id: cfg.id, eligible, count };
+          let count = 0;
+          if (show) { try { count = await layer.queryFeatureCount({ where: layer.definitionExpression }); } catch (e) { count = 0; } }
+          return count;
         }));
-        let total = 0;
-        results.forEach(r => {
-          const badge = countBadges[r.id];
-          if (!r.eligible) {
-            badge.textContent = "N/A"; badge.classList.add("na");
-            badge.title = "This program has no field for one of the active filters, so it is hidden on the map.";
-          } else {
-            badge.textContent = (r.count == null ? "—" : r.count.toLocaleString());
-            badge.classList.remove("na");
-            badge.title = `${r.count} record(s) match the current filters`;
-            if (toggleState[r.id]) total += (r.count || 0);
-          }
-          badge.classList.toggle("off", !toggleState[r.id]);
-        });
+        const total = results.reduce((s, n) => s + n, 0);
         document.getElementById("resultCount").innerHTML = `<strong>${total.toLocaleString()}</strong> city housing record${total === 1 ? "" : "s"} shown on the map.`;
         // keep the dashboard district panel in sync with the map's district filter
         syncDistrict(fDistrict.value, "map");
         writeUrl(fDistrict.value);
       }
-      document.getElementById("applyBtn").addEventListener("click", applyFilters);
+      // Every filter applies instantly (no Apply button).
+      [fYear, fStatus, fFunding, fDevType, fDistrict, fNcod].forEach(s => s.addEventListener("change", applyFilters));
       document.getElementById("resetBtn").addEventListener("click", () => {
         [fYear, fStatus, fFunding, fDevType, fDistrict, fNcod].forEach(s => (s.value = ""));
         loanMinR.value = 0; loanMaxR.value = LOAN_MAX; updateLoanUI();
+        unitMinR.value = 0; unitMaxR.value = UNIT_MAX; updateUnitUI();
         applyFilters();
       });
-      fDistrict.addEventListener("change", applyFilters);
 
       function writeUrl(dist) {
         const p = new URLSearchParams(location.search);
@@ -619,11 +727,14 @@
         history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p : "") + location.hash);
       }
 
-      /* fit to the development extent */
-      try {
-        const ext = await devLayer.queryExtent();
-        if (ext.extent) await viewEl.goTo(ext.extent.expand(1.2), { animate: false });
-      } catch (e) {}
+      /* fit to the development extent — deferred + non-blocking (goTo needs a
+         ready view; never let it stall the dashboard below). */
+      viewEl.viewOnReady().then(async () => {
+        try {
+          const ext = await devLayer.queryExtent();
+          if (ext.extent) await viewEl.goTo(ext.extent.expand(1.2), { animate: false });
+        } catch (e) {}
+      }).catch(() => {});
 
       /* =================================================================== *
        *  DASHBOARD  — charts from the aggregate summary table (source of truth)
@@ -650,6 +761,59 @@
       document.getElementById("kpis").innerHTML = kpis.map(([lbl, n]) =>
         `<div class="kpi"><div class="num">${n.toLocaleString()}</div><div class="lbl">${lbl}</div></div>`).join("");
 
+      /* 10-year goal-window note (FY16–26; newer production is outside the goal) */
+      document.getElementById("goalNote").innerHTML =
+        `<strong>10-year goal window:</strong> the City's production goal covers <strong>${labels[0]}–${labels[labels.length - 1]}</strong>. ` +
+        `Units recorded for FY2027 and beyond fall <strong>outside</strong> that goal window and are tracked separately.`;
+
+      /* Goal-surpassed hero — two eye-catching visuals of 5,873 vs the 5,700 goal */
+      const GOAL = 5700;
+      const surplus = totalAll - GOAL, pctGoal = totalAll / GOAL * 100;
+      const goalPct = GOAL / totalAll * 100;   // marker position (share of total that is the goal)
+      document.getElementById("goalHero").innerHTML = `
+        <div class="goal-gauge-card">
+          <h4>Progress to 10-year goal</h4>
+          <div class="goal-gauge-box"><canvas id="goalGauge"></canvas>
+            <div class="gauge-center"><div class="gauge-pct">${pctGoal.toFixed(0)}%</div><div class="gauge-lbl">of ${GOAL.toLocaleString()} goal</div></div>
+          </div>
+          <div class="goal-bar-row">
+            <div class="goal-bar-col">
+              <div class="goal-bar-wrap">
+                <div class="goal-bar-fill toward" style="width:${goalPct.toFixed(1)}%"></div>
+                <div class="goal-bar-fill over" style="left:${goalPct.toFixed(1)}%;width:${(100 - goalPct).toFixed(1)}%"></div>
+                <div class="goal-marker" style="left:${goalPct.toFixed(1)}%"><span>Goal ${GOAL.toLocaleString()}</span></div>
+              </div>
+              <div class="goal-bar-ends"><span>0</span><span><strong>${totalAll.toLocaleString()}</strong> completed</span></div>
+            </div>
+            <span class="goal-surplus">+${surplus.toLocaleString()} units</span>
+          </div>
+        </div>`;
+      new Chart(document.getElementById("goalGauge"), {
+        type: "doughnut",
+        data: { labels: ["Toward goal", "Surplus over goal"], datasets: [{ data: [GOAL, surplus], backgroundColor: [BRAND.raleighGreen, BRAND.amber], borderWidth: 0 }] },
+        options: { rotation: -90, circumference: 180, cutout: "72%", responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.label}: ${c.parsed.toLocaleString()} units` } } } },
+      });
+
+      /* Yearly + Total program table (colleague's "Sum of … (yearly and total)") */
+      const COLLEAGUE_LABEL = {
+        "Housing_Development_New_Construction": "Rental Units Constructed",
+        "Housing_Development_Preservation":     "Rental Units Preserved",
+        "Homeowner_Rehabs":                     "Homeowner Rehab Units",
+        "Homebuyer_Assistance":                 "Homebuyer Assistance Units",
+        "Other_Housing_Impact":                 "Other Housing Impact Units",
+      };
+      const thead = `<thead><tr><th>Program</th>${labels.map(l => `<th>${l}</th>`).join("")}<th class="total-col">Total</th></tr></thead>`;
+      let tbody = "<tbody>";
+      CATS.forEach(c => {
+        const vals = yearRows.map(r => num(r[c.field]));
+        const tot = vals.reduce((s, n) => s + n, 0);
+        tbody += `<tr><td>${COLLEAGUE_LABEL[c.field] || c.label}</td>${vals.map(v => `<td>${v.toLocaleString()}</td>`).join("")}<td class="total-col">${tot.toLocaleString()}</td></tr>`;
+      });
+      const colTotals = labels.map((_, i) => CATS.reduce((s, c) => s + num(yearRows[i][c.field]), 0));
+      tbody += `<tr class="total-row"><td>Total completed</td>${colTotals.map(v => `<td>${v.toLocaleString()}</td>`).join("")}<td class="total-col">${colTotals.reduce((s, n) => s + n, 0).toLocaleString()}</td></tr></tbody>`;
+      document.getElementById("catTable").innerHTML = thead + tbody;
+
       new Chart(document.getElementById("stacked"), {
         type: "bar",
         data: { labels, datasets: CATS.map(c => ({ label: c.label, data: yearRows.map(r => num(r[c.field])), backgroundColor: c.color })) },
@@ -662,11 +826,23 @@
         data: { labels, datasets: [{ label: "Total completed", data: yearRows.map(r => num(r[SF.total])), backgroundColor: BRAND.midGreen }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
       });
-      new Chart(document.getElementById("share"), {
-        type: "doughnut",
-        data: { labels: CATS.map(c => c.label), datasets: [{ data: CATS.map(c => sumCat(c.field)), backgroundColor: CATS.map(c => c.color) }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } },
-      });
+      // Share doughnut with a per-fiscal-year filter.
+      const shareYearSel = document.getElementById("shareYear");
+      yearRows.forEach(r => { const o = document.createElement("option"); o.value = r[SF.fiscalYear]; o.textContent = fyLabel(r); shareYearSel.appendChild(o); });
+      let shareChart;
+      function renderShare(fy) {
+        const rows = fy ? yearRows.filter(r => r[SF.fiscalYear] === fy) : yearRows;
+        const data = CATS.map(c => rows.reduce((s, r) => s + num(r[c.field]), 0));
+        if (shareChart) shareChart.destroy();
+        shareChart = new Chart(document.getElementById("share"), {
+          type: "doughnut",
+          data: { labels: CATS.map(c => c.label), datasets: [{ data, backgroundColor: CATS.map(c => c.color) }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" },
+            title: { display: true, text: (fy ? shareYearSel.options[shareYearSel.selectedIndex].text : "All years") + " — " + data.reduce((s, n) => s + n, 0).toLocaleString() + " units" } } },
+        });
+      }
+      shareYearSel.addEventListener("change", () => renderShare(shareYearSel.value));
+      renderShare("");
       let run = 0;
       const cum = yearRows.map(r => (run += num(r[SF.total])));
       new Chart(document.getElementById("cumulative"), {
@@ -675,26 +851,83 @@
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
       });
 
-      /* pipeline — FY26 quarters (source-of-truth table) */
+      /* Rental development: completed vs. pipeline, FY26 by quarter (source-of-truth table) */
       const fy26q = sumRows.filter(r => r[SF.fiscalYear] === "2025-2026" && r[SF.quarter] !== "All")
                            .sort((a, b) => String(a[SF.quarter]).localeCompare(String(b[SF.quarter])));
-      const pipeHasData = fy26q.some(r => num(r[SF.hdPipeline]) > 0 || num(r[SF.hrPipeline]) > 0);
-      if (pipeHasData) {
+      const rentalDone = (r) => num(r["Housing_Development_New_Construction"]) + num(r["Housing_Development_Preservation"]);
+      if (fy26q.length) {
         new Chart(document.getElementById("pipeline"), {
           type: "bar",
           data: {
             labels: fy26q.map(r => r[SF.quarter]),
             datasets: [
-              { label: "Housing development pipeline", data: fy26q.map(r => num(r[SF.hdPipeline])), backgroundColor: BRAND.navy },
-              { label: "Homeowner-rehab pipeline",     data: fy26q.map(r => num(r[SF.hrPipeline])), backgroundColor: BRAND.chartreuse },
+              { label: "Rental dev — completed", data: fy26q.map(rentalDone),                backgroundColor: BRAND.raleighGreen },
+              { label: "Rental dev — pipeline",  data: fy26q.map(r => num(r[SF.hdPipeline])), backgroundColor: BRAND.amber },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } },
-            scales: { y: { title: { display: true, text: "Units in pipeline" } } } },
+            scales: { y: { title: { display: true, text: "Rental units" } } } },
         });
       } else {
-        document.getElementById("pipeline").insertAdjacentHTML("afterend", `<div class="note">No pipeline units recorded yet for FY26.</div>`);
+        document.getElementById("pipeline").insertAdjacentHTML("afterend", `<div class="note">No FY26 quarterly data recorded yet.</div>`);
       }
+
+      /* =================================================================== *
+       *  BOND PRODUCTION — how the 2020 Housing Bond was used (geometry-based)
+       * =================================================================== */
+      const BOND_FIELD = "f_2020_Bond", UNITS = "Total_Units";
+      // f_2020_Bond is numeric on Development + Homeowner Rehabs (string/empty on HBA) -> aggregate those two.
+      const BOND_LAYERS = ["housing_development", "homeowner_rehabs"];
+      async function statSum(layer, where, valueField) {
+        const q = layer.createQuery(); q.where = where; q.returnGeometry = false;
+        q.outStatistics = [{ statisticType: "sum", onStatisticField: valueField, outStatisticFieldName: "v" }];
+        try { const r = await layer.queryFeatures(q); return num(r.features[0] && r.features[0].attributes.v); } catch (e) { return 0; }
+      }
+      async function groupSum(layer, where, groupField, valueField) {
+        const q = layer.createQuery(); q.where = where; q.returnGeometry = false;
+        q.groupByFieldsForStatistics = [groupField];
+        q.outStatistics = [{ statisticType: "sum", onStatisticField: valueField, outStatisticFieldName: "v" }];
+        try { return (await layer.queryFeatures(q)).features.map(f => ({ key: clean(f.attributes[groupField]) || "Not specified", v: num(f.attributes.v) })); } catch (e) { return []; }
+      }
+      try {
+        let bondUnits = 0, bondDollars = 0, bondProjects = 0;
+        const byYear = {};
+        for (const id of BOND_LAYERS) {
+          const layer = housing[id], w = `${BOND_FIELD} > 0`;
+          bondUnits   += await statSum(layer, w, UNITS);
+          bondDollars += await statSum(layer, w, BOND_FIELD);
+          bondProjects += await layer.queryFeatureCount({ where: w });
+          (await groupSum(layer, w, FILTERABLE[id].year, UNITS)).forEach(g => { byYear[g.key] = (byYear[g.key] || 0) + g.v; });
+        }
+        document.getElementById("bondKpis").innerHTML = [
+          ["2020 Bond invested", fmtMoney(bondDollars)],
+          ["Bond-funded units", fmtNum(bondUnits)],
+          ["Bond-funded projects", fmtNum(bondProjects)],
+        ].map(([l, v]) => `<div class="kpi"><div class="num">${v}</div><div class="lbl">${l}</div></div>`).join("");
+
+        // City housing units by funding source (Development layer — richest funding detail)
+        const bySource = (await groupSum(housing.housing_development, "1=1", DEV_FIELDS.fundingSource, UNITS))
+          .filter(g => g.v > 0).sort((a, b) => b.v - a.v);
+        new Chart(document.getElementById("bondBySource"), {
+          type: "bar",
+          data: { labels: bySource.map(g => g.key), datasets: [{ label: "Units", data: bySource.map(g => g.v),
+            backgroundColor: bySource.map(g => /2020 Bond/i.test(g.key) ? BRAND.amber : BRAND.leafGreen) }] },
+          options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { x: { title: { display: true, text: "Units" } } } },
+        });
+
+        // 2020 Bond-funded units by fiscal year
+        const yrs = Object.keys(byYear).sort();
+        new Chart(document.getElementById("bondByYear"), {
+          type: "bar",
+          data: { labels: yrs.map(y => "FY" + y.slice(2)), datasets: [{ label: "Bond-funded units", data: yrs.map(y => byYear[y]), backgroundColor: BRAND.amber }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { y: { title: { display: true, text: "Units" } } } },
+        });
+        document.getElementById("bondCaveat").innerHTML +=
+          ` <br><strong>Story:</strong> the 2020 Housing Bond has funded <strong>${fmtNum(bondUnits)}</strong> units across ` +
+          `<strong>${bondProjects}</strong> projects (${fmtMoney(bondDollars)} committed on the mapped layers).`;
+      } catch (e) { document.getElementById("bondCaveat").innerHTML += ` (Bond figures could not be loaded: ${e.message})`; }
 
       /* =================================================================== *
        *  DISTRICT PANEL — aggregated from the mapped point layers (geometry)
