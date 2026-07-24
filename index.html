@@ -237,6 +237,40 @@
         <div class="note" style="margin-top:10px;">Units and totals from the 2020 Bond Tracker table.</div>
       </div>
 
+      <!-- Bond visualizations: stacked bar, grouped bars, small multiples, heatmap, and pivot table -->
+      <h3 style="margin-top:18px;color:var(--raleigh-green);">2020 Bond visualizations — options</h3>
+      <div class="card-grid">
+        <div class="card bond wide">
+          <h4>1) Stacked bar — units by category (FY)</h4>
+          <div class="chart-box"><canvas id="bondStackedUnits" style="height:240px;"></canvas></div>
+        </div>
+        <div class="card bond wide">
+          <h4>2) Grouped bars — units (left) &amp; funds committed (right axis)</h4>
+          <div class="chart-box"><canvas id="bondGrouped" style="height:280px;"></canvas></div>
+        </div>
+        <div class="card bond">
+          <h4>3) Small multiples — funds committed by category</h4>
+          <div id="bondSmallMultiples" style="display:flex;flex-wrap:wrap;gap:12px;"></div>
+        </div>
+        <div class="card bond">
+          <h4>4) Heatmap table — units (color) — toggle metric</h4>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><label for="heatMetric">Metric</label>
+            <select id="heatMetric" style="margin-left:6px;padding:6px;font:inherit;"><option value="units">Units</option><option value="fundsAvailable">Funds available</option><option value="fundsCommitted">Funds committed</option></select>
+            <button id="downloadHeatCSV" style="margin-left:12px;padding:6px 10px;">Download CSV</button>
+          </div>
+          <div class="table-scroll"><table class="data-table" id="bondHeatmapTable"></table></div>
+        </div>
+        <div class="card bond wide">
+          <h4>5) Interactive pivot — choose metric &amp; export</h4>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <label for="pivotMetric">Metric</label>
+            <select id="pivotMetric" style="margin-left:6px;padding:6px;font:inherit;"><option value="Total_Units">Units</option><option value="Funds_Available">Funds available</option><option value="Funds_Committed">Funds committed</option></select>
+            <button id="downloadPivotCSV" style="margin-left:12px;padding:6px 10px;">Download CSV</button>
+          </div>
+          <div class="table-scroll"><table class="data-table" id="bondPivotTable"></table></div>
+        </div>
+      </div>
+
       <div class="footer-note" id="footer"></div>
     </div>
 
@@ -821,47 +855,175 @@
       tbody += `<tr class="total-row"><td>Total completed</td>${colTotals.map(v => `<td>${v.toLocaleString()}</td>`).join("")}<td class="total-col">${colTotals.reduce((s, n) => s + n, 0).toLocaleString()}</td></tr></tbody>`;
       document.getElementById("catTable").innerHTML = thead + tbody;
 
-      // --------------- 2020 Bond totals table (from hosted bond tracker table) ---------------
+      // --------------- 2020 Bond totals table (years as rows, categories as columns) ---------------
       try {
         const bondUrl = 'https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/f_2020_Bond_Tracker_Bond_2020_Totals/FeatureServer/0/query?where=1%3D1&outFields=Bond_2020_Category,Fiscal_Year,End_Year,Total_Units,Funds_Available,Funds_Committed&orderByFields=End_Year&returnGeometry=false&f=json';
         const bondJson = await (await fetch(bondUrl)).json();
         const bondRows = bondJson.features.map(f => f.attributes);
+
+        // Years (rows) and categories (columns)
         const years = Array.from(new Set(bondRows.map(r => r.End_Year).filter(v => v !== null))).sort((a, b) => a - b);
         const yearLabels = years.map(y => 'FY' + String(y).slice(2));
         const categories = Array.from(new Set(bondRows.map(r => r.Bond_2020_Category || r.Funding_Source || 'Not specified')));
 
-        // Build a two-row header: year columns each have Units + Funds, then Totals (Units, Funds Available, Funds Committed)
-        const topHeader = `<thead><tr><th rowspan="2">Category</th>${yearLabels.map(l => `<th colspan="2">${l}</th>`).join('')}<th colspan="3">Totals</th></tr>` +
-                          `<tr>${years.map(() => `<th>Units</th><th>Funds</th>`).join('')}<th>Units</th><th>Funds available</th><th>Funds committed</th></tr></thead>`;
+        // Header: first row has category groupings (each spans 3 cols for Units / Funds available / Funds committed)
+        const headerTop = `<thead><tr><th rowspan="2">Fiscal year</th>${categories.map(c => `<th colspan="3">${c}</th>`).join('')}<th colspan="3">Totals</th></tr>`;
+        const headerBottom = `<tr>${categories.map(() => `<th>Units</th><th>Funds available</th><th>Funds committed</th>`).join('')}<th>Units</th><th>Funds available</th><th>Funds committed</th></tr></thead>`;
 
-        let btbody = '<tbody>';
-        categories.forEach(cat => {
-          // Per-year units and funds (use Funds_Committed as the per-year 'Funds' column)
-          const valsUnits = years.map(y => bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
-                                                  .reduce((s, r) => s + (Number(r.Total_Units) || 0), 0));
-          const valsFunds = years.map(y => bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
-                                                  .reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0));
-          const totUnits = valsUnits.reduce((s, n) => s + n, 0);
-          const totFundsAvailable = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat)
-                                            .reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
-          const totFundsCommitted = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat)
-                                            .reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
-
-          btbody += `<tr><td>${cat}</td>${years.map((y, i) => `<td>${valsUnits[i].toLocaleString()}</td><td>$${valsFunds[i].toLocaleString()}</td>`).join('')}<td class="total-col">${totUnits.toLocaleString()}</td><td class="total-col">$${totFundsAvailable.toLocaleString()}</td><td class="total-col">$${totFundsCommitted.toLocaleString()}</td></tr>`;
+        let rowsHtml = '<tbody>';
+        years.forEach((y, yi) => {
+          let row = `<tr><td>${yearLabels[yi]}</td>`;
+          let yearUnitsTotal = 0, yearFundsAvailableTotal = 0, yearFundsCommittedTotal = 0;
+          categories.forEach(cat => {
+            const matches = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y);
+            const units = matches.reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+            const fundsAvailable = matches.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+            const fundsCommitted = matches.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+            yearUnitsTotal += units; yearFundsAvailableTotal += fundsAvailable; yearFundsCommittedTotal += fundsCommitted;
+            row += `<td>${units.toLocaleString()}</td><td>$${fundsAvailable.toLocaleString()}</td><td>$${fundsCommitted.toLocaleString()}</td>`;
+          });
+          row += `<td class="total-col">${yearUnitsTotal.toLocaleString()}</td><td class="total-col">$${yearFundsAvailableTotal.toLocaleString()}</td><td class="total-col">$${yearFundsCommittedTotal.toLocaleString()}</td></tr>`;
+          rowsHtml += row;
         });
 
-        // Column totals per year (units and funds) and grand totals
-        const colUnitsTotals = years.map(y => categories.reduce((s, cat) => s + bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
-                                                                                                              .reduce((ss, r) => ss + (Number(r.Total_Units) || 0), 0), 0));
-        const colFundsTotals = years.map(y => categories.reduce((s, cat) => s + bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat && r.End_Year === y)
-                                                                                                              .reduce((ss, r) => ss + (Number(r.Funds_Committed) || 0), 0), 0));
-        const totalUnitsAll = colUnitsTotals.reduce((s, n) => s + n, 0);
-        const totalFundsAvailableAll = bondRows.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
-        const totalFundsCommittedAll = bondRows.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+        // Grand totals row (all years)
+        const grandUnits = bondRows.reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+        const grandFundsAvailable = bondRows.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+        const grandFundsCommitted = bondRows.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
 
-        btbody += `<tr class="total-row"><td>Total</td>${years.map((y, i) => `<td>${colUnitsTotals[i].toLocaleString()}</td><td>$${colFundsTotals[i].toLocaleString()}</td>`).join('')}<td class="total-col">${totalUnitsAll.toLocaleString()}</td><td class="total-col">$${totalFundsAvailableAll.toLocaleString()}</td><td class="total-col">$${totalFundsCommittedAll.toLocaleString()}</td></tr></tbody>`;
+        rowsHtml += `<tr class="total-row"><td>Total (all years)</td>`;
+        // For grand totals per category across all years
+        categories.forEach(cat => {
+          const matches = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === cat);
+          const units = matches.reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+          const fundsAvailable = matches.reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+          const fundsCommitted = matches.reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+          rowsHtml += `<td>${units.toLocaleString()}</td><td>$${fundsAvailable.toLocaleString()}</td><td>$${fundsCommitted.toLocaleString()}</td>`;
+        });
+        rowsHtml += `<td class="total-col">${grandUnits.toLocaleString()}</td><td class="total-col">$${grandFundsAvailable.toLocaleString()}</td><td class="total-col">$${grandFundsCommitted.toLocaleString()}</td></tr>`;
 
-        document.getElementById('bond2020Table').innerHTML = topHeader + btbody;
+        rowsHtml += '</tbody>';
+        document.getElementById('bond2020Table').innerHTML = headerTop + headerBottom + rowsHtml;
+
+        /* -------------------------- Build visualizations ------------------------- */
+        // Prepare matrices
+        const catList = categories; // preserved from above
+        const yearList = years;
+        const unitsMat = yearList.map(y => catList.map(c => {
+          return bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === c && r.End_Year === y)
+                         .reduce((s, r) => s + (Number(r.Total_Units) || 0), 0);
+        }));
+        const fundsAvailableMat = yearList.map(y => catList.map(c => {
+          return bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === c && r.End_Year === y)
+                         .reduce((s, r) => s + (Number(r.Funds_Available) || 0), 0);
+        }));
+        const fundsCommittedMat = yearList.map(y => catList.map(c => {
+          return bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === c && r.End_Year === y)
+                         .reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0);
+        }));
+
+        // Color palette (repeat if needed)
+        const palette = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber, BRAND.rust, BRAND.navy];
+        const catColors = catList.map((c, i) => palette[i % palette.length]);
+
+        // 1) Stacked bar (units)
+        const stackedDatasets = catList.map((c, i) => ({ label: c, data: yearList.map((y, yi) => unitsMat[yi][i]), backgroundColor: catColors[i] }));
+        if (window.bondStackedChart) window.bondStackedChart.destroy();
+        window.bondStackedChart = new Chart(document.getElementById('bondStackedUnits'), {
+          type: 'bar', data: { labels: yearList.map(y => 'FY' + String(y).slice(2)), datasets: stackedDatasets },
+          options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Units' } } }, plugins: { legend: { position: 'bottom' } } },
+        });
+
+        // 2) Grouped bars: for each category we create units dataset and funds dataset (funds on right axis)
+        const groupedDatasets = [];
+        catList.forEach((c, i) => {
+          groupedDatasets.push({ label: c + ' — units', data: yearList.map((y, yi) => unitsMat[yi][i]), backgroundColor: catColors[i], yAxisID: 'y' });
+          groupedDatasets.push({ label: c + ' — funds', data: yearList.map((y, yi) => fundsCommittedMat[yi][i]), backgroundColor: catColors[i].replace('#','8'), yAxisID: 'y1', barThickness: 10 });
+        });
+        if (window.bondGroupedChart) window.bondGroupedChart.destroy();
+        window.bondGroupedChart = new Chart(document.getElementById('bondGrouped'), {
+          type: 'bar', data: { labels: yearList.map(y => 'FY' + String(y).slice(2)), datasets: groupedDatasets },
+          options: { responsive: true, maintainAspectRatio: false, scales: { y: { type: 'linear', position: 'left', title: { display: true, text: 'Units' } }, y1: { type: 'linear', position: 'right', title: { display: true, text: 'Funds ($)' }, grid: { drawOnChartArea: false } } }, plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } } },
+        });
+
+        // 3) Small multiples: funds committed per category over time
+        const smContainer = document.getElementById('bondSmallMultiples'); smContainer.innerHTML = '';
+        catList.forEach((c, i) => {
+          const wrap = document.createElement('div'); wrap.style.width = '220px'; wrap.style.height = '140px'; wrap.style.border = '1px solid var(--border)'; wrap.style.padding = '6px'; wrap.style.background = 'var(--white)';
+          const title = document.createElement('div'); title.style.fontSize = '.85rem'; title.style.marginBottom = '6px'; title.textContent = c; wrap.appendChild(title);
+          const can = document.createElement('canvas'); can.style.width = '100%'; can.style.height = '100px'; wrap.appendChild(can);
+          smContainer.appendChild(wrap);
+          new Chart(can, { type: 'line', data: { labels: yearList.map(y => 'FY' + String(y).slice(2)), datasets: [{ label: 'Funds committed', data: yearList.map((y, yi) => fundsCommittedMat[yi][i]), borderColor: catColors[i], backgroundColor: catColors[i], fill: false }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => '$' + Number(v).toLocaleString() } } } } });
+        });
+
+        // 4) Heatmap table: years x categories, color by selected metric
+        function renderHeatmap(metric) {
+          const header = `<thead><tr><th>Fiscal year</th>${catList.map(c => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead>`;
+          let body = '<tbody>';
+          // compute per-year per-cat metric matrix and find max for scaling
+          const valMat = yearList.map((y, yi) => catList.map((c, ci) => {
+            const matches = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === c && r.End_Year === y);
+            if (metric === 'units') return matches.reduce((s,r)=>s+(Number(r.Total_Units)||0),0);
+            if (metric === 'fundsAvailable') return matches.reduce((s,r)=>s+(Number(r.Funds_Available)||0),0);
+            return matches.reduce((s,r)=>s+(Number(r.Funds_Committed)||0),0);
+          }));
+          const flat = valMat.flat(); const maxVal = Math.max(...flat, 1);
+          yearList.forEach((y, yi) => {
+            const total = valMat[yi].reduce((s,n)=>s+n,0);
+            let r = `<tr><td>FY${String(y).slice(2)}</td>`;
+            valMat[yi].forEach(v => { const pct = v / maxVal; const bg = `rgba(13,105,55,${0.12 + pct*0.78})`; r += `<td style="background:${bg}">${metric === 'units' ? v.toLocaleString() : '$' + v.toLocaleString()}</td>`; });
+            r += `<td class="total-col">${metric === 'units' ? total.toLocaleString() : '$' + total.toLocaleString()}</td></tr>`; body += r;
+          });
+          body += '</tbody>';
+          document.getElementById('bondHeatmapTable').innerHTML = header + body;
+        }
+        document.getElementById('heatMetric').addEventListener('change', (e) => renderHeatmap(e.target.value));
+        renderHeatmap('units');
+        document.getElementById('downloadHeatCSV').addEventListener('click', () => {
+          const metric = document.getElementById('heatMetric').value;
+          let csv = 'Fiscal year,' + catList.join(',') + ',Total\n';
+          yearList.forEach((y, yi) => {
+            const vals = catList.map((c, ci) => {
+              if (metric === 'units') return unitsMat[yi][ci];
+              if (metric === 'fundsAvailable') return fundsAvailableMat[yi][ci];
+              return fundsCommittedMat[yi][ci];
+            });
+            csv += `FY${String(y).slice(2)},${vals.join(',')},${vals.reduce((s,n)=>s+n,0)}\n`;
+          });
+          const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv); a.download = `bond_heatmap_${metric}.csv`; a.click();
+        });
+
+        // 5) Pivot table: years rows, categories columns for chosen metric
+        function renderPivot(metricField) {
+          const header = `<thead><tr><th>Fiscal year</th>${catList.map(c => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead>`;
+          let body = '<tbody>';
+          yearList.forEach((y, yi) => {
+            let row = `<tr><td>FY${String(y).slice(2)}</td>`;
+            let yearTotal = 0;
+            catList.forEach((c, ci) => {
+              const val = bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === c && r.End_Year === y)
+                                  .reduce((s, r) => s + (Number(r[metricField]) || 0), 0);
+              yearTotal += val;
+              row += `<td>${metricField === 'Total_Units' ? val.toLocaleString() : '$' + val.toLocaleString()}</td>`;
+            });
+            row += `<td class="total-col">${metricField === 'Total_Units' ? yearTotal.toLocaleString() : '$' + yearTotal.toLocaleString()}</td></tr>`;
+            body += row;
+          });
+          body += '</tbody>';
+          document.getElementById('bondPivotTable').innerHTML = header + body;
+        }
+        const pivotSel = document.getElementById('pivotMetric'); pivotSel.addEventListener('change', (e) => renderPivot(e.target.value));
+        renderPivot('Total_Units');
+        document.getElementById('downloadPivotCSV').addEventListener('click', () => {
+          const metric = pivotSel.value; let csv = 'Fiscal year,' + catList.join(',') + ',Total\n';
+          yearList.forEach((y, yi) => {
+            const vals = catList.map((c, ci) => bondRows.filter(r => (r.Bond_2020_Category || r.Funding_Source || 'Not specified') === c && r.End_Year === y)
+                                                        .reduce((s, r) => s + (Number(r[metric]) || 0), 0));
+            csv += `FY${String(y).slice(2)},${vals.join(',')},${vals.reduce((s,n)=>s+n,0)}\n`;
+          });
+          const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv); a.download = `bond_pivot_${metric}.csv`; a.click();
+        });
+
       } catch (e) {
         document.getElementById('bond2020Table').innerHTML = '<tbody><tr><td>Unable to load 2020 Bond totals.</td></tr></tbody>';
         console.error('Bond table load error', e);
