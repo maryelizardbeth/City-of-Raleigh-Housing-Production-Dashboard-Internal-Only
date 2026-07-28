@@ -60,7 +60,7 @@ body {
   display: flex;
   height: calc(100vh - var(--header-h) - 4px);
   min-height: 520px;
-  border-bottom: 3px solid var(--leaf-green);
+  border-bottom: 10px solid var(--leaf-green);
 }
 .sidebar {
   width: 340px; flex: 0 0 340px; background: var(--white);
