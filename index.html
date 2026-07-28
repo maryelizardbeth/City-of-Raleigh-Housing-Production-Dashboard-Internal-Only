@@ -1350,6 +1350,9 @@
             q.where = "1=1";
             q.returnGeometry = false;
             q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount, F.fiscalYear];
+            if (F.amiBands) q.outFields.push(...F.amiBands);
+            if (F.unrestricted) q.outFields.push(F.unrestricted);
+            if (F.homeownership) q.outFields.push(F.homeownership);
 
             const res = await layer.queryFeatures(q);
             console.log(`Features from ${layerId}:`, res.features.length);
@@ -1364,11 +1367,24 @@
 
               if (!byYear[fy]) byYear[fy] = {};
               byYear[fy][source] = (byYear[fy][source] || 0) + amount;
+
+              if (F.amiBands && Array.isArray(F.amiBands)) {
+                byAMI["≤20% AMI"] = (byAMI["≤20% AMI"] || 0) + (num(f.attributes[F.amiBands[0]]) || 0);
+                byAMI["30% AMI"] = (byAMI["30% AMI"] || 0) + (num(f.attributes[F.amiBands[1]]) || 0);
+                byAMI["40% AMI"] = (byAMI["40% AMI"] || 0) + (num(f.attributes[F.amiBands[2]]) || 0);
+                byAMI["50% AMI"] = (byAMI["50% AMI"] || 0) + (num(f.attributes[F.amiBands[3]]) || 0);
+                byAMI["60% AMI"] = (byAMI["60% AMI"] || 0) + (num(f.attributes[F.amiBands[4]]) || 0);
+                byAMI["70% AMI"] = (byAMI["70% AMI"] || 0) + (num(f.attributes[F.amiBands[5]]) || 0);
+                byAMI["80% AMI"] = (byAMI["80% AMI"] || 0) + (num(f.attributes[F.amiBands[6]]) || 0);
+              }
+              if (F.unrestricted) byAMI["Unrestricted"] = (byAMI["Unrestricted"] || 0) + (num(f.attributes[F.unrestricted]) || 0);
+              if (F.homeownership) byAMI["Homeownership"] = (byAMI["Homeownership"] || 0) + (num(f.attributes[F.homeownership]) || 0);
             });
           }
 
           console.log("Aggregated data by source:", bySource);
           console.log("Aggregated data by year:", byYear);
+          console.log("Aggregated data by AMI:", byAMI);
 
           // Render pie chart (units by source)
           const labels = Object.keys(bySource).sort();
@@ -1417,6 +1433,30 @@
             }
           });
 
+          // Render horizontal bar chart (units by AMI band)
+          const amiLabels = Object.keys(byAMI);
+          const amiData = Object.values(byAMI);
+          const amiColors = [BRAND.navy, BRAND.teal, BRAND.leafGreen, BRAND.chartreuse, BRAND.amber, BRAND.rust, "#99bbff", BRAND.raleighGreen, BRAND.midGreen];
+
+          if (fundingAMIChart) fundingAMIChart.destroy();
+          fundingAMIChart = new Chart(document.getElementById("fundingByAMI"), {
+            type: "bar",
+            data: {
+              labels: amiLabels,
+              datasets: [{
+                label: "Units",
+                data: amiData,
+                backgroundColor: amiColors.slice(0, amiLabels.length)
+              }]
+            },
+            options: {
+              indexAxis: "y",
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: { x: { beginAtZero: true } },
+              plugins: { legend: { display: false } }
+            }
+          });
         }
 
         fundingProjectTypeSel.addEventListener("change", () => renderFundingCharts(fundingProjectTypeSel.value));
