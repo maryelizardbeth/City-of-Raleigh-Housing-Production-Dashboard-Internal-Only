@@ -76,6 +76,10 @@
             <div class="range-label" id="unitLabel"></div>
           </div>
           <div class="field"><label for="fDevType">Development type</label><select id="fDevType"><option value="">Any</option></select></div>
+          <div class="field">
+            <label>AMI level (project has ≥1 unit in the selected band(s))</label>
+            <div class="checks" id="fAmiChecks"></div>
+          </div>
           <div class="field-row">
             <div class="field"><label for="fDistrict">Council district</label><select id="fDistrict"><option value="">All districts</option></select></div>
             <div class="field"><label for="fNcod">NCOD overlay</label><select id="fNcod"><option value="">All areas</option></select></div>
@@ -85,7 +89,10 @@
           </div>
           <div class="note" id="resultCount" style="margin-top:10px;"></div>
           <div class="note" style="margin-top:8px;">Filters apply to <strong>all city housing layers</strong>. A layer that lacks a
-          selected field (e.g. only Development has a development type; Homebuyer Assistance has no status) is hidden while that filter is active.</div>
+          selected field (e.g. only Development has a development type; Homebuyer Assistance has no status; Other Housing Impact has no AMI data)
+          is hidden while that filter is active. Selecting multiple AMI levels shows any project with at least one unit in <strong>any</strong>
+          selected band. AMI bands for Housing Development are only populated once a project is <strong>Complete</strong>, so pipeline projects
+          will not match an AMI filter.</div>
         </div>
 
         <div class="panel-section">
@@ -634,12 +641,20 @@
        * lacks a field for an active filter is HIDDEN on the map while that
        * filter is active, and its count badge reads "N/A" (not 0).           */
       const devLayer = housing.housing_development;
+      // AMI band field order is fixed (≤20% … 80%); DEV_FIELDS.amiBands carries [field,label,color]
+      // tuples while REHAB_FIELDS/HBA_FIELDS.amiBands are plain field-name arrays in the same order.
+      const AMI_LABELS = DEV_FIELDS.amiBands.map(b => b[1]);
+      const DEV_AMI_FIELDS = DEV_FIELDS.amiBands.map(b => b[0]);
       const FILTERABLE = {
-        housing_development:  { year: DEV_FIELDS.fiscalYear,   status: DEV_FIELDS.projectStatus,   funding: DEV_FIELDS.fundingSource,   devType: DEV_FIELDS.developmentType, district: DEV_FIELDS.council,   ncod: DEV_FIELDS.ncod,   loan: DEV_FIELDS.loanAmount,   units: DEV_FIELDS.totalUnits },
-        homeowner_rehabs:     { year: REHAB_FIELDS.fiscalYear, status: REHAB_FIELDS.projectStatus, funding: REHAB_FIELDS.fundingSource, devType: null,                       district: REHAB_FIELDS.council, ncod: REHAB_FIELDS.ncod, loan: REHAB_FIELDS.loanAmount, units: REHAB_FIELDS.totalUnits },
-        homebuyer_assistance: { year: HBA_FIELDS.fiscalYear,   status: HBA_FIELDS.projectStatus,   funding: HBA_FIELDS.fundingSource,   devType: null,                       district: HBA_FIELDS.council,   ncod: HBA_FIELDS.ncod,   loan: HBA_FIELDS.loanAmount,   units: HBA_FIELDS.totalUnits },
-        other_housing_impact: { year: OTHER_FIELDS.fiscalYear, status: OTHER_FIELDS.projectStatus, funding: null,                       devType: null,                       district: OTHER_FIELDS.council, ncod: OTHER_FIELDS.ncod, loan: null,                   units: OTHER_FIELDS.totalUnits },
+        housing_development:  { year: DEV_FIELDS.fiscalYear,   status: DEV_FIELDS.projectStatus,   funding: DEV_FIELDS.fundingSource,   devType: DEV_FIELDS.developmentType, district: DEV_FIELDS.council,   ncod: DEV_FIELDS.ncod,   loan: DEV_FIELDS.loanAmount,   units: DEV_FIELDS.totalUnits, ami: DEV_AMI_FIELDS },
+        homeowner_rehabs:     { year: REHAB_FIELDS.fiscalYear, status: REHAB_FIELDS.projectStatus, funding: REHAB_FIELDS.fundingSource, devType: null,                       district: REHAB_FIELDS.council, ncod: REHAB_FIELDS.ncod, loan: REHAB_FIELDS.loanAmount, units: REHAB_FIELDS.totalUnits, ami: REHAB_FIELDS.amiBands },
+        homebuyer_assistance: { year: HBA_FIELDS.fiscalYear,   status: HBA_FIELDS.projectStatus,   funding: HBA_FIELDS.fundingSource,   devType: null,                       district: HBA_FIELDS.council,   ncod: HBA_FIELDS.ncod,   loan: HBA_FIELDS.loanAmount,   units: HBA_FIELDS.totalUnits, ami: HBA_FIELDS.amiBands },
+        other_housing_impact: { year: OTHER_FIELDS.fiscalYear, status: OTHER_FIELDS.projectStatus, funding: null,                       devType: null,                       district: OTHER_FIELDS.council, ncod: OTHER_FIELDS.ncod, loan: null,                   units: OTHER_FIELDS.totalUnits, ami: null },
       };
+      const fAmiChecks = document.getElementById("fAmiChecks");
+      fAmiChecks.innerHTML = AMI_LABELS.map((lbl, i) =>
+        `<label><input type="checkbox" value="${i}" /> ${lbl} AMI</label>`).join("");
+      const fAmi = [...fAmiChecks.querySelectorAll("input[type=checkbox]")];
       const [fYear, fStatus, fFunding, fDevType, fDistrict, fNcod] =
         ["fYear", "fStatus", "fFunding", "fDevType", "fDistrict", "fNcod"].map(id => document.getElementById(id));
 
@@ -774,6 +789,7 @@
         const eq = { year: fYear.value, status: fStatus.value, funding: fFunding.value, devType: fDevType.value, district: fDistrict.value, ncod: fNcod.value };
         const lo = +loanMinR.value, hi = +loanMaxR.value, loanActive = loanIsActive();
         const ulo = +unitMinR.value, uhi = +unitMaxR.value, unitActive = unitIsActive();
+        const amiChecked = fAmi.filter(cb => cb.checked).map(cb => +cb.value);
         const results = await Promise.all(HOUSING_LAYERS.map(async cfg => {
           const layer = housing[cfg.id], map = FILTERABLE[cfg.id];
           const clauses = []; let eligible = true;
@@ -790,6 +806,10 @@
             if (!map.units) eligible = false;
             else clauses.push(`${map.units} >= ${ulo} AND ${map.units} <= ${uhi}`);
           }
+          if (eligible && amiChecked.length) {
+            if (!map.ami) eligible = false;   // layer has no AMI band fields → hide + N/A
+            else clauses.push("(" + amiChecked.map(i => `${map.ami[i]} > 0`).join(" OR ") + ")");
+          }
           layer.definitionExpression = clauses.length ? clauses.join(" AND ") : "1=1";
           const show = toggleState[cfg.id] && eligible;
           layer.visible = show;
@@ -805,8 +825,10 @@
       }
       // Every filter applies instantly (no Apply button).
       [fYear, fStatus, fFunding, fDevType, fDistrict, fNcod].forEach(s => s.addEventListener("change", applyFilters));
+      fAmi.forEach(cb => cb.addEventListener("change", applyFilters));
       document.getElementById("resetBtn").addEventListener("click", () => {
         [fYear, fStatus, fFunding, fDevType, fDistrict, fNcod].forEach(s => (s.value = ""));
+        fAmi.forEach(cb => (cb.checked = false));
         loanMinR.value = 0; loanMaxR.value = LOAN_MAX; updateLoanUI();
         unitMinR.value = 0; unitMaxR.value = UNIT_MAX; updateUnitUI();
         applyFilters();
