@@ -1444,34 +1444,29 @@
           });
 
           // Render horizontal bar chart (units by AMI band)
-          try {
-            const amiLabels = Object.keys(byAMI).filter(k => byAMI[k] > 0);
-            const amiData = amiLabels.map(l => byAMI[l]);
-            const amiColors = [BRAND.navy, BRAND.teal, BRAND.leafGreen, BRAND.chartreuse, BRAND.amber, BRAND.rust, "#99bbff", BRAND.raleighGreen, BRAND.midGreen];
+          const amiLabels = Object.keys(byAMI);
+          const amiData = Object.values(byAMI);
+          const amiColors = [BRAND.navy, BRAND.teal, BRAND.leafGreen, BRAND.chartreuse, BRAND.amber, BRAND.rust, "#99bbff", BRAND.raleighGreen, BRAND.midGreen];
 
-            if (fundingAMIChart) fundingAMIChart.destroy();
-            fundingAMIChart = new Chart(document.getElementById("fundingByAMI"), {
-              type: "bar",
-              data: {
-                labels: amiLabels,
-                datasets: [{
-                  label: "Units",
-                  data: amiData,
-                  backgroundColor: amiColors.slice(0, amiLabels.length)
-                }]
-              },
-              options: {
-                indexAxis: "y",
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { x: { beginAtZero: true } },
-                plugins: { legend: { display: false } }
-              }
-            });
-            console.log("Aggregated data by AMI:", byAMI);
-          } catch (amiErr) {
-            console.warn("AMI chart error:", amiErr);
-          }
+          if (fundingAMIChart) fundingAMIChart.destroy();
+          fundingAMIChart = new Chart(document.getElementById("fundingByAMI"), {
+            type: "bar",
+            data: {
+              labels: amiLabels,
+              datasets: [{
+                label: "Units",
+                data: amiData,
+                backgroundColor: amiColors.slice(0, amiLabels.length)
+              }]
+            },
+            options: {
+              indexAxis: "y",
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: { x: { beginAtZero: true } },
+              plugins: { legend: { display: false } }
+            }
+          });
         }
 
         fundingProjectTypeSel.addEventListener("change", () => renderFundingCharts(fundingProjectTypeSel.value));
