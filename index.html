@@ -211,13 +211,9 @@
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Affordability and funding</h2>
       <div class="card wide" style="margin-top:12px;">
+        <h3 style="margin:0 0 12px 0;">Units by funding source</h3>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">
-          <label style="font-weight:600;font-size:.85rem;">Show by:</label>
-          <select id="fundingMetric" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;">
-            <option value="units">Units</option>
-            <option value="amount">Loan Amount</option>
-          </select>
-          <label style="font-weight:600;font-size:.85rem; margin-left: 1rem;">Project type:</label>
+          <label style="font-weight:600;font-size:.85rem;">Project type:</label>
           <select id="fundingProjectType" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;">
             <option value="">All types</option>
           </select>
@@ -1308,9 +1304,8 @@
       renderGeography(distSel.value, ncodSel.value);
       await applyFilters();
 
-      /* ===== AFFORDABILITY & FUNDING: Funding Source Breakdown ===== */
+      /* ===== AFFORDABILITY & FUNDING: Units by Funding Source ===== */
       try {
-        const fundingMetricSel = document.getElementById("fundingMetric");
         const fundingProjectTypeSel = document.getElementById("fundingProjectType");
         const FUNDING_LAYERS_MAP = {
           "housing_development": "Housing Development",
@@ -1324,9 +1319,9 @@
             Object.entries(FUNDING_LAYERS_MAP).map(([id, label]) => `<option value="${id}">${label}</option>`).join("");
         }
 
-        async function renderFundingChart(metric, selectedLayerId) {
+        async function renderFundingChart(selectedLayerId) {
           const bySource = {};
-          console.log("Rendering funding chart with metric:", metric, "layer:", selectedLayerId);
+          console.log("Rendering funding chart - layer:", selectedLayerId);
 
           const layersToQuery = selectedLayerId ? [selectedLayerId] : Object.keys(FUNDING_LAYERS_MAP);
 
@@ -1342,20 +1337,15 @@
             const q = layer.createQuery();
             q.where = "1=1";
             q.returnGeometry = false;
-            q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount];
+            q.outFields = [F.fundingSource, F.totalUnits];
 
             const res = await layer.queryFeatures(q);
             console.log(`Features from ${layerId}:`, res.features.length);
 
             res.features.forEach(f => {
               const source = clean(f.attributes[F.fundingSource]) || "Not specified";
-              if (metric === "units") {
-                const units = num(f.attributes[F.totalUnits]) || 1;
-                bySource[source] = (bySource[source] || 0) + units;
-              } else {
-                const amount = num(f.attributes[F.loanAmount]) || 0;
-                bySource[source] = (bySource[source] || 0) + amount;
-              }
+              const units = num(f.attributes[F.totalUnits]) || 1;
+              bySource[source] = (bySource[source] || 0) + units;
             });
           }
 
@@ -1363,7 +1353,7 @@
 
           const labels = Object.keys(bySource).sort();
           const data = labels.map(l => bySource[l]);
-          const colors = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber, BRAND.rust, BRAND.navy];
+          const colors = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber, "#E91E8C", BRAND.navy];
 
           if (fundingChart) fundingChart.destroy();
           fundingChart = new Chart(document.getElementById("fundingBySource"), {
@@ -1383,10 +1373,9 @@
           });
         }
 
-        fundingMetricSel.addEventListener("change", () => renderFundingChart(fundingMetricSel.value, fundingProjectTypeSel.value));
-        fundingProjectTypeSel.addEventListener("change", () => renderFundingChart(fundingMetricSel.value, fundingProjectTypeSel.value));
+        fundingProjectTypeSel.addEventListener("change", () => renderFundingChart(fundingProjectTypeSel.value));
         initProjectTypeDropdown();
-        await renderFundingChart("units", "");
+        await renderFundingChart("");
       } catch (e) { console.error("Funding chart error:", e); }
 
       const updated = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
