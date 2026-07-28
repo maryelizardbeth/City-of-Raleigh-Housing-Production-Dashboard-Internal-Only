@@ -66,7 +66,7 @@ export const HOUSING_LAYERS = [
   },
   {
     id: "homeowner_rehabs",
-    title: "Homeowner Rehabs",
+    title: "Home Repair",
     url: `${ORG}/HomeownerRehabs_Public_De_identified_/FeatureServer/0`,
     kind: "rehab",
     color: BRAND.teal,
@@ -112,7 +112,7 @@ export const SUMMARY_TABLE = {
   categories: [
     { field: "Housing_Development_New_Construction", label: "New construction",      color: BRAND.raleighGreen },
     { field: "Housing_Development_Preservation",     label: "Preserved",             color: BRAND.leafGreen },
-    { field: "Homeowner_Rehabs",                     label: "Homeowner rehabs",      color: BRAND.chartreuse },
+    { field: "Homeowner_Rehabs",                     label: "Home repair",           color: BRAND.chartreuse },
     { field: "Homebuyer_Assistance",                 label: "Homebuyer assistance",  color: BRAND.teal },
     { field: "Other_Housing_Impact",                 label: "Other housing impact",  color: BRAND.amber },
   ],

@@ -126,7 +126,7 @@
           <h2>Data notes</h2>
           <div class="note">
             AMI affordability breakdowns show only for <strong>Complete</strong> development projects (per HCD rules).
-            The Homeowner Rehab, Homebuyer Assistance, and Other Housing Impact layers are
+            The Home Repair, Homebuyer Assistance, and Other Housing Impact layers are
             <strong>public de-identified</strong> versions — resident names and addresses are removed and each point is
             shifted 200–700 m, so mapped locations are <strong>approximate</strong>. Mapped point counts are geometry and
             <strong>do not reconcile</strong> to the Housing Production Tracker totals (the source of truth) — see the charts below.
@@ -198,7 +198,7 @@
       <div class="card wide" style="margin-top:12px;">
         <div class="table-scroll"><table class="data-table" id="catTable"></table></div>
         <div class="note" style="margin-top:10px;">"Sum of … (yearly and total)" for each program —
-        Rental Units Constructed, Rental Units Preserved, Homeowner Rehabs, Homebuyer Assistance, and Other Housing Impact.</div>
+        Rental Units Constructed, Rental Units Preserved, Home Repair, Homebuyer Assistance, and Other Housing Impact.</div>
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">City housing by geography</h2>
@@ -243,7 +243,7 @@
         </div>
       </div>
 
-      <h3 style="margin-top:18px;color:var(--raleigh-green);">2020 Bond Housing Development Projects (PPP, LIHTC, Preservation Only)</h3>
+      <h3 style="margin-top:18px;color:var(--raleigh-green);">2020 Bond Housing Development Projects (PPP, LIHTC Gap Financing, Site Acquisition Only)</h3>
       <div class="card-grid">
         <div class="card wide">
           <h4>2020 Bond summary</h4>
@@ -841,7 +841,7 @@
       const COLLEAGUE_LABEL = {
         "Housing_Development_New_Construction": "Rental Units Constructed",
         "Housing_Development_Preservation":     "Rental Units Preserved",
-        "Homeowner_Rehabs":                     "Homeowner Rehab Units",
+        "Homeowner_Rehabs":                     "Home Repair Units",
         "Homebuyer_Assistance":                 "Homebuyer Assistance Units",
         "Other_Housing_Impact":                 "Other Housing Impact Units",
       };
@@ -867,7 +867,7 @@
         const yearLabels = years.map(y => 'FY' + String(y).slice(2));
 
         // Allowed categories and normalization / mapping helper to avoid "Not specified" and to normalize variants
-        const ALLOWED_CATS = ["Homeowner Rehab","Public Private Partnerships","LIHTC Gap","Preservation","Homebuyer Assistance"];
+        const ALLOWED_CATS = ["Home Repair","Public Private Partnerships","LIHTC Gap Financing","Site Acquisition","Homebuyer Assistance"];
         const normalize = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
         const mapCategory = raw => {
           const r = normalize(raw);
