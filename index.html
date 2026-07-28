@@ -1422,7 +1422,7 @@
         fundingProjectTypeSel.addEventListener("change", () => renderFundingCharts(fundingProjectTypeSel.value));
         initProjectTypeDropdown();
         await renderFundingCharts("");
-      } catch (e) { console.error("Funding chart error:", e); }
+      } catch (e) { console.error("Funding chart error:", e.message || e); }
 
       const updated = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
       document.getElementById("footer").innerHTML =
