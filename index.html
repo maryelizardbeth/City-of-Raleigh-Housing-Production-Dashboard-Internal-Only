@@ -210,15 +210,21 @@
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Affordability and funding</h2>
-      <div class="card wide" style="margin-top:12px;">
-        <h3 style="margin:0 0 12px 0;">Units by funding source</h3>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">
-          <label style="font-weight:600;font-size:.85rem;">Project type:</label>
-          <select id="fundingProjectType" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;">
-            <option value="">All types</option>
-          </select>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 16px;">
+        <label style="font-weight:600;font-size:.85rem;">Project type:</label>
+        <select id="fundingProjectType" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;">
+          <option value="">All types</option>
+        </select>
+      </div>
+      <div class="card-grid">
+        <div class="card">
+          <h3 style="margin:0 0 12px 0;">Units by funding source</h3>
+          <div class="chart-box" style="height: 300px;"><canvas id="fundingBySource"></canvas></div>
         </div>
-        <div class="chart-box" style="height: 300px;"><canvas id="fundingBySource"></canvas></div>
+        <div class="card">
+          <h3 style="margin:0 0 12px 0;">Total funding by year</h3>
+          <div class="chart-box" style="height: 300px;"><canvas id="fundingByYear"></canvas></div>
+        </div>
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Housing pipeline</h2>
@@ -1304,7 +1310,7 @@
       renderGeography(distSel.value, ncodSel.value);
       await applyFilters();
 
-      /* ===== AFFORDABILITY & FUNDING: Units by Funding Source ===== */
+      /* ===== AFFORDABILITY & FUNDING: Units by Source + Funding by Year ===== */
       try {
         const fundingProjectTypeSel = document.getElementById("fundingProjectType");
         const FUNDING_LAYERS_MAP = {
@@ -1312,16 +1318,17 @@
           "homeowner_rehabs": "Home Repair",
           "homebuyer_assistance": "Homebuyer Assistance"
         };
-        let fundingChart;
+        let fundingChart, fundingYearChart;
 
         function initProjectTypeDropdown() {
           fundingProjectTypeSel.innerHTML = '<option value="">All types</option>' +
             Object.entries(FUNDING_LAYERS_MAP).map(([id, label]) => `<option value="${id}">${label}</option>`).join("");
         }
 
-        async function renderFundingChart(selectedLayerId) {
+        async function renderFundingCharts(selectedLayerId) {
           const bySource = {};
-          console.log("Rendering funding chart - layer:", selectedLayerId);
+          const byYear = {};
+          console.log("Rendering funding charts - layer:", selectedLayerId);
 
           const layersToQuery = selectedLayerId ? [selectedLayerId] : Object.keys(FUNDING_LAYERS_MAP);
 
@@ -1337,7 +1344,7 @@
             const q = layer.createQuery();
             q.where = "1=1";
             q.returnGeometry = false;
-            q.outFields = [F.fundingSource, F.totalUnits];
+            q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount, F.fiscalYear];
 
             const res = await layer.queryFeatures(q);
             console.log(`Features from ${layerId}:`, res.features.length);
@@ -1345,12 +1352,20 @@
             res.features.forEach(f => {
               const source = clean(f.attributes[F.fundingSource]) || "Not specified";
               const units = num(f.attributes[F.totalUnits]) || 1;
+              const amount = num(f.attributes[F.loanAmount]) || 0;
+              const fy = clean(f.attributes[F.fiscalYear]) || "Unknown";
+
               bySource[source] = (bySource[source] || 0) + units;
+
+              if (!byYear[fy]) byYear[fy] = {};
+              byYear[fy][source] = (byYear[fy][source] || 0) + amount;
             });
           }
 
           console.log("Aggregated data by source:", bySource);
+          console.log("Aggregated data by year:", byYear);
 
+          // Render pie chart (units by source)
           const labels = Object.keys(bySource).sort();
           const data = labels.map(l => bySource[l]);
           const colors = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber, "#99bbff", BRAND.navy];
@@ -1371,11 +1386,32 @@
               plugins: { legend: { position: "bottom" } }
             }
           });
+
+          // Render bar chart (funding by year by source)
+          const yearLabels = Object.keys(byYear).sort();
+          const allSources = [...new Set(Object.values(byYear).flatMap(y => Object.keys(y)))].sort();
+          const datasets = allSources.map((src, i) => ({
+            label: src,
+            data: yearLabels.map(year => (byYear[year][src] || 0) / 1000000),
+            backgroundColor: colors[i % colors.length]
+          }));
+
+          if (fundingYearChart) fundingYearChart.destroy();
+          fundingYearChart = new Chart(document.getElementById("fundingByYear"), {
+            type: "bar",
+            data: { labels: yearLabels, datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: { y: { stacked: true, title: { display: true, text: "Funding ($M)" } } },
+              plugins: { legend: { position: "bottom" } }
+            }
+          });
         }
 
-        fundingProjectTypeSel.addEventListener("change", () => renderFundingChart(fundingProjectTypeSel.value));
+        fundingProjectTypeSel.addEventListener("change", () => renderFundingCharts(fundingProjectTypeSel.value));
         initProjectTypeDropdown();
-        await renderFundingChart("");
+        await renderFundingCharts("");
       } catch (e) { console.error("Funding chart error:", e); }
 
       const updated = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
