@@ -1105,6 +1105,8 @@
         const pick = (a, candidates) => { for (const c of candidates) { if (a[c] != null && String(a[c]).trim() !== '') return a[c]; } return null; };
         const nameFields = [DEV_FIELDS.project, 'ProjectName','PROJECT_NAME','Project','Name','PROJECT'];
         const fyFields = ['Fiscal_Year','FiscalYear','End_Year','END_YEAR','FiscalYear_Formatted'];
+        const fyFundedFields = ['Fiscal_Year_Funded','FiscalYearFunded','Fiscal_Year'];
+        const fundYearFields = ['Fund_Year','FundYear','Fiscal_Year_Funded'];
         const unitFields = ['Total_Units','TotalUnits','UNITS','Units','TOTAL_UNITS'];
         const catFields = ['Bond_2020_Category','BondCategory','Funding_Source','FundingSource'];
         const statusFields = [DEV_FIELDS.projectStatus,'Status','PROJECT_STATUS','ProjectStatus','projectStatus'];
@@ -1149,10 +1151,10 @@
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
         });
 
-        // Cumulative units by fiscal year
+        // Cumulative units by fund year
         const byYearSum = {};
         devRows.forEach(r => {
-          const y = (pick(r, fyFields) || '').toString().trim();
+          const y = (pick(r, fundYearFields) || '').toString().trim();
           if (y) {
             const u = Number(pick(r, unitFields)) || 0;
             byYearSum[y] = (byYearSum[y] || 0) + u;
@@ -1171,16 +1173,16 @@
         if (window.bondDevCumulativeChart) window.bondDevCumulativeChart.destroy();
         window.bondDevCumulativeChart = new Chart(document.getElementById('bondDevCumulative'), {
           type: 'line', data: { labels: yearLabels, datasets: [{ label: 'Cumulative Units', data: cumulativeData, backgroundColor: 'transparent', borderColor: BRAND.raleighGreen, borderWidth: 2, pointRadius: 4, pointBackgroundColor: BRAND.raleighGreen, tension: 0.3, fill: false }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Fiscal Year' } }, y: { beginAtZero: true, title: { display: true, text: 'Units' } } } },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Fund Year' } }, y: { beginAtZero: true, title: { display: true, text: 'Units' } } } },
         });
 
         // Scrollable project listing — exclude monetary/funding amount fields
-        const rows = devRows.sort((a,b) => (''+pick(b, fyFields)).localeCompare(''+pick(a, fyFields)));
+        const rows = devRows.sort((a,b) => (''+pick(b, fyFundedFields)).localeCompare(''+pick(a, fyFundedFields)));
         let tbl = `<thead><tr><th>Project</th><th>Category</th><th>Fiscal Year Funded</th><th>Status</th><th>Total Units</th></tr></thead><tbody>`;
         rows.forEach(r => {
           const proj = pick(r, nameFields) || '—';
           const bc = pick(r, catFields) || '—';
-          const fy = pick(r, fyFields) || '';
+          const fy = pick(r, fyFundedFields) || '';
           const st = pick(r, statusFields) || '—';
           const u = Number(pick(r, unitFields)) || 0;
           tbl += `<tr><td>${proj}</td><td>${bc}</td><td>${fy}</td><td>${st}</td><td>${u.toLocaleString()}</td></tr>`;
