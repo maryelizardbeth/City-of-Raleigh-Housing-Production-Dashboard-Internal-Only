@@ -201,10 +201,12 @@
         Rental Units Constructed, Rental Units Preserved, Homeowner Rehabs, Homebuyer Assistance, and Other Housing Impact.</div>
       </div>
 
-      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">City housing by council district</h2>
+      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">City housing by geography</h2>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 6px;">
         <label for="distSel" style="font-weight:600;font-size:.85rem;">Council district</label>
         <select id="distSel" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;"><option value="">All districts</option></select>
+        <label for="ncodSel" style="font-weight:600;font-size:.85rem;">NCOD overlay</label>
+        <select id="ncodSel" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;"><option value="">All areas</option></select>
       </div>
       <div class="caveat" id="distCaveat">
         Derived from the <strong>mapped point layers</strong> (geometry), not the aggregate tracker. These counts will
@@ -219,7 +221,7 @@
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">2020 Housing Bond funds</h2>
       <div><span class="src-badge">Source: 2020 Bond Tracker (f_2020_Bond_Tracker_Bond_2020_Totals)</span></div>
-      <div class="caveat" id="bondCaveat" style="margin-top:8px;">Note: 2020 Bond figures come from a separate source than the Housing Production Tracker and count both completed and pipeline units, so these totals won't match the other charts.</div>
+      <div class="caveat" id="bondCaveat" style="margin-top:8px;">Note: The 2020 Bond data below comes from a separate data source and is not tabulated in the same way as above. Be advised that totals will not always match.</div>
       <div class="card wide" style="margin-top:12px;">
         <div class="table-scroll"><table class="data-table" id="bond2020Table"></table></div>
         <div class="note" style="margin-top:10px;">Units and totals from the 2020 Bond Tracker table.</div>
@@ -1208,37 +1210,42 @@
         const layer = housing[p.id];
         const q = layer.createQuery();
         q.where = "1=1"; q.returnGeometry = false;
-        q.outFields = [p.F.council, p.F.totalUnits, p.F.fiscalYear];
+        q.outFields = [p.F.council, p.F.ncod, p.F.totalUnits, p.F.fiscalYear];
         const res = await layer.queryFeatures(q);
         res.features.forEach(f => {
           const a = f.attributes;
           const d = clean(a[p.F.council]);
-          if (d) records.push({ program: p.id, district: d, fiscalYear: clean(a[p.F.fiscalYear]), units: num(a[p.F.totalUnits]) || 1 });
+          if (d) records.push({ program: p.id, district: d, ncod: clean(a[p.F.ncod]) || "", fiscalYear: clean(a[p.F.fiscalYear]), units: num(a[p.F.totalUnits]) || 1 });
           else untagged[p.id]++;
         });
       }
       const distSel = document.getElementById("distSel");
+      const ncodSel = document.getElementById("ncodSel");
       const distValues = [...new Set(records.map(r => r.district))].sort();
+      const ncodValues = [...new Set(records.map(r => r.ncod).filter(Boolean))].sort();
       fillSel(distSel, distValues);
+      fillSel(ncodSel, ncodValues);
 
       const missing = PROGRAMS.filter(p => untagged[p.id] > 0).map(p => `${untagged[p.id]} ${p.label.toLowerCase()}`).join(", ");
       if (missing) document.getElementById("distCaveat").innerHTML +=
         `<div style="margin-top:6px;">Not assigned to a district (blank/None in source, so excluded here): ${missing}.</div>`;
 
       let distChart;
-      function renderDistrict(dist) {
-        const rows2 = dist ? records.filter(r => r.district === dist) : records;
+      function renderGeography(dist, ncod) {
+        const rows2 = records.filter(r => (!dist || r.district === dist) && (!ncod || r.ncod === ncod));
         const unitsOf = (id) => rows2.filter(r => r.program === id).reduce((s, r) => s + r.units, 0);
         const kpi = [["Total units (mapped)", rows2.reduce((s, r) => s + r.units, 0)], ...PROGRAMS.map(p => [p.label, unitsOf(p.id)])];
         document.getElementById("distKpis").innerHTML = kpi.map(([l, v]) =>
           `<div class="kpi"><div class="num">${v.toLocaleString()}</div><div class="lbl">${l}</div></div>`).join("");
 
         let labels2, title;
-        if (!dist) { labels2 = distValues; title = "Units by district and program (mapped points)"; }
-        else { labels2 = [...new Set(rows2.map(r => r.fiscalYear).filter(Boolean))].sort(); title = `${dist}: units by fiscal year and program (mapped points)`; }
+        if (!dist && !ncod) { labels2 = distValues; title = "Units by district and program (mapped points)"; }
+        else if (dist && !ncod) { labels2 = [...new Set(rows2.map(r => r.fiscalYear).filter(Boolean))].sort(); title = `${dist}: units by fiscal year and program (mapped points)`; }
+        else if (!dist && ncod) { labels2 = [...new Set(rows2.map(r => r.fiscalYear).filter(Boolean))].sort(); title = `${ncod}: units by fiscal year and program (mapped points)`; }
+        else { labels2 = [...new Set(rows2.map(r => r.fiscalYear).filter(Boolean))].sort(); title = `${dist}, ${ncod}: units by fiscal year and program (mapped points)`; }
         const datasets = PROGRAMS.map(p => ({
           label: p.label, backgroundColor: p.color,
-          data: labels2.map(lbl => rows2.filter(r => r.program === p.id && (dist ? r.fiscalYear === lbl : r.district === lbl)).reduce((s, r) => s + r.units, 0)),
+          data: labels2.map(lbl => rows2.filter(r => r.program === p.id && (!dist && !ncod ? r.district === lbl : r.fiscalYear === lbl)).reduce((s, r) => s + r.units, 0)),
         }));
         document.getElementById("distChartTitle").textContent = title;
         if (distChart) distChart.destroy();
@@ -1250,26 +1257,30 @@
         });
       }
 
-      /* keep the two district selectors + URL in sync (single page) */
+      /* keep the geography selectors + URL in sync (single page) */
       let syncing = false;
-      function syncDistrict(val, origin) {
+      function syncGeography(distVal, ncodVal) {
         if (syncing) return; syncing = true;
-        if (distValues.includes(val) || val === "") distSel.value = val;
-        if ([...fDistrict.options].some(o => o.value === val) || val === "") fDistrict.value = val;
-        renderDistrict(distSel.value);
+        if (distValues.includes(distVal) || distVal === "") distSel.value = distVal;
+        if (ncodValues.includes(ncodVal) || ncodVal === "") ncodSel.value = ncodVal;
+        if ([...fDistrict.options].some(o => o.value === distVal) || distVal === "") fDistrict.value = distVal;
+        renderGeography(distSel.value, ncodSel.value);
         syncing = false;
       }
       distSel.addEventListener("change", () => {
-        renderDistrict(distSel.value);
+        renderGeography(distSel.value, ncodSel.value);
         if ([...fDistrict.options].some(o => o.value === distSel.value) || distSel.value === "") {
           fDistrict.value = distSel.value; applyFilters();
         } else { writeUrl(distSel.value); }
+      });
+      ncodSel.addEventListener("change", () => {
+        renderGeography(distSel.value, ncodSel.value);
       });
 
       /* seed from URL */
       const urlDist = new URLSearchParams(location.search).get("district") || "";
       if (urlDist) { if ([...fDistrict.options].some(o => o.value === urlDist)) fDistrict.value = urlDist; distSel.value = distValues.includes(urlDist) ? urlDist : ""; }
-      renderDistrict(distSel.value);
+      renderGeography(distSel.value, ncodSel.value);
       await applyFilters();
 
       const updated = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
