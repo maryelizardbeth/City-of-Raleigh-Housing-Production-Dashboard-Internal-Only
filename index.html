@@ -183,6 +183,10 @@
           <div class="chart-box"><canvas id="cumulative"></canvas></div>
         </div>
         <div class="card">
+          <h3>City housing units by funding source</h3>
+          <div class="chart-box"><canvas id="bondBySource"></canvas></div>
+        </div>
+        <div class="card">
           <h3>Rental development — completed vs. pipeline (FY26 by quarter)</h3>
           <div class="chart-box"><canvas id="pipeline"></canvas></div>
           <div id="pipelineNote"></div>
@@ -195,23 +199,6 @@
         <div class="table-scroll"><table class="data-table" id="catTable"></table></div>
         <div class="note" style="margin-top:10px;">"Sum of … (yearly and total)" for each program —
         Rental Units Constructed, Rental Units Preserved, Homeowner Rehabs, Homebuyer Assistance, and Other Housing Impact.</div>
-      </div>
-
-      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Bond production — how the 2020 Housing Bond was used</h2>
-      <div class="caveat" id="bondCaveat">
-        Derived from each project's <strong>funding fields on the mapped point layers</strong> (geometry), not the aggregate
-        tracker — so these will not reconcile to the citywide totals above. "Bond-funded" = any project with a 2020 Bond amount &gt; 0.
-      </div>
-      <div class="kpi-row" id="bondKpis" style="margin-top:14px;"></div>
-      <div class="card-grid">
-        <div class="card bond">
-          <h3>City housing units by funding source</h3>
-          <div class="chart-box"><canvas id="bondBySource"></canvas></div>
-        </div>
-        <div class="card bond">
-          <h3>2020 Bond-funded units by fiscal year</h3>
-          <div class="chart-box"><canvas id="bondByYear"></canvas></div>
-        </div>
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">City housing by council district</h2>
@@ -254,21 +241,25 @@
         </div>
       </div>
 
-      <h3 style="margin-top:18px;color:var(--raleigh-green);">2020 Bond development — project views</h3>
+      <h3 style="margin-top:18px;color:var(--raleigh-green);">2020 Bond Housing Development Projects (PPP, LIHTC, Preservation Only)</h3>
       <div class="card-grid">
         <div class="card wide">
           <h4>Project summary</h4>
           <div class="kpi-row" id="bondDevKpis" style="margin-top:6px;"></div>
           <div class="note" style="margin-top:8px;">Listing shows projects that have a 2020 Bond amount &gt; 0. Financial fields are intentionally excluded.</div>
         </div>
+      </div>
+      <div class="card-grid">
         <div class="card">
-          <h4>Units by 2020 Bond Category</h4>
+          <h4>2020 Bond Housing Development Units by category</h4>
           <div class="chart-box"><canvas id="bondDevByCategory"></canvas></div>
         </div>
         <div class="card">
-          <h4>Units by project status</h4>
+          <h4>2020 Bond Housing Development Units by status</h4>
           <div class="chart-box"><canvas id="bondDevByStatus"></canvas></div>
         </div>
+      </div>
+      <div class="card-grid">
         <div class="card wide">
           <h4>Project listing (scrollable)</h4>
           <div class="table-scroll"><table class="data-table" id="bondDevList"></table></div>
@@ -1134,8 +1125,8 @@
         const catData = catLabels.map(l => byCat[l]);
         if (window.bondDevCatChart) window.bondDevCatChart.destroy();
         window.bondDevCatChart = new Chart(document.getElementById('bondDevByCategory'), {
-          type: 'bar', data: { labels: catLabels, datasets: [{ label: 'Units', data: catData, backgroundColor: catLabels.map((_,i) => palette[i % palette.length]) }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Bond category' } }, y: { title: { display: true, text: 'Units' } } } },
+          type: 'pie', data: { labels: catLabels, datasets: [{ data: catData, backgroundColor: catLabels.map((_,i) => palette[i % palette.length]) }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
         });
 
         // Units by status
@@ -1149,8 +1140,8 @@
         const statusData = statusLabels.map(l => byStatus[l]);
         if (window.bondDevStatusChart) window.bondDevStatusChart.destroy();
         window.bondDevStatusChart = new Chart(document.getElementById('bondDevByStatus'), {
-          type: 'bar', data: { labels: statusLabels, datasets: [{ label: 'Units', data: statusData, backgroundColor: statusLabels.map((_,i) => palette[(i+2) % palette.length]) }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Status' } }, y: { title: { display: true, text: 'Units' } } } },
+          type: 'pie', data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: statusLabels.map((_,i) => palette[(i+2) % palette.length]) }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
         });
 
         // Scrollable project listing — exclude monetary/funding amount fields
