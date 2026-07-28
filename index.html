@@ -1353,7 +1353,7 @@
 
           const labels = Object.keys(bySource).sort();
           const data = labels.map(l => bySource[l]);
-          const colors = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber, "#E91E8C", BRAND.navy];
+          const colors = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber, "#99bbff", BRAND.navy];
 
           if (fundingChart) fundingChart.destroy();
           fundingChart = new Chart(document.getElementById("fundingBySource"), {
