@@ -1312,39 +1312,25 @@
       try {
         const fundingMetricSel = document.getElementById("fundingMetric");
         const fundingProjectTypeSel = document.getElementById("fundingProjectType");
-        const FUNDING_LAYERS = ["housing_development", "homeowner_rehabs", "homebuyer_assistance"];
+        const FUNDING_LAYERS_MAP = {
+          "housing_development": "Housing Development",
+          "homeowner_rehabs": "Home Repair",
+          "homebuyer_assistance": "Homebuyer Assistance"
+        };
         let fundingChart;
-        let allProjectTypes = new Set();
 
-        async function loadProjectTypes() {
-          for (const layerId of FUNDING_LAYERS) {
-            const layer = housing[layerId];
-            if (!layer) continue;
-
-            const F = layerId === "housing_development" ? DEV_FIELDS : (layerId === "homeowner_rehabs" ? REHAB_FIELDS : HBA_FIELDS);
-            const typeField = layerId === "housing_development" ? F.developmentType : (layerId === "homeowner_rehabs" ? F.rehabType : null);
-            if (!typeField) continue;
-
-            const q = layer.createQuery();
-            q.where = "1=1";
-            q.returnGeometry = false;
-            q.outFields = [typeField];
-            const res = await layer.queryFeatures(q);
-            res.features.forEach(f => {
-              const type = clean(f.attributes[typeField]);
-              if (type) allProjectTypes.add(type);
-            });
-          }
-
-          const types = Array.from(allProjectTypes).sort();
-          fundingProjectTypeSel.innerHTML = '<option value="">All types</option>' + types.map(t => `<option value="${t}">${t}</option>`).join("");
+        function initProjectTypeDropdown() {
+          fundingProjectTypeSel.innerHTML = '<option value="">All types</option>' +
+            Object.entries(FUNDING_LAYERS_MAP).map(([id, label]) => `<option value="${id}">${label}</option>`).join("");
         }
 
-        async function renderFundingChart(metric, projectType) {
+        async function renderFundingChart(metric, selectedLayerId) {
           const bySource = {};
-          console.log("Rendering funding chart with metric:", metric, "project type:", projectType);
+          console.log("Rendering funding chart with metric:", metric, "layer:", selectedLayerId);
 
-          for (const layerId of FUNDING_LAYERS) {
+          const layersToQuery = selectedLayerId ? [selectedLayerId] : Object.keys(FUNDING_LAYERS_MAP);
+
+          for (const layerId of layersToQuery) {
             const layer = housing[layerId];
             if (!layer) {
               console.warn("Layer not found:", layerId);
@@ -1352,12 +1338,11 @@
             }
 
             const F = layerId === "housing_development" ? DEV_FIELDS : (layerId === "homeowner_rehabs" ? REHAB_FIELDS : HBA_FIELDS);
-            const typeField = layerId === "housing_development" ? F.developmentType : (layerId === "homeowner_rehabs" ? F.rehabType : null);
 
             const q = layer.createQuery();
-            q.where = projectType && typeField ? `${typeField} = '${projectType}'` : "1=1";
+            q.where = "1=1";
             q.returnGeometry = false;
-            q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount, ...(typeField ? [typeField] : [])];
+            q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount];
 
             const res = await layer.queryFeatures(q);
             console.log(`Features from ${layerId}:`, res.features.length);
@@ -1400,7 +1385,7 @@
 
         fundingMetricSel.addEventListener("change", () => renderFundingChart(fundingMetricSel.value, fundingProjectTypeSel.value));
         fundingProjectTypeSel.addEventListener("change", () => renderFundingChart(fundingMetricSel.value, fundingProjectTypeSel.value));
-        await loadProjectTypes();
+        initProjectTypeDropdown();
         await renderFundingChart("units", "");
       } catch (e) { console.error("Funding chart error:", e); }
 
