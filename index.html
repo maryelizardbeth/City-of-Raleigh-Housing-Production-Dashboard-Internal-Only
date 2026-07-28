@@ -217,6 +217,10 @@
             <option value="units">Units</option>
             <option value="amount">Loan Amount</option>
           </select>
+          <label style="font-weight:600;font-size:.85rem; margin-left: 1rem;">Project type:</label>
+          <select id="fundingProjectType" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;">
+            <option value="">All types</option>
+          </select>
         </div>
         <div class="chart-box" style="height: 300px;"><canvas id="fundingBySource"></canvas></div>
       </div>
@@ -1307,12 +1311,38 @@
       /* ===== AFFORDABILITY & FUNDING: Funding Source Breakdown ===== */
       try {
         const fundingMetricSel = document.getElementById("fundingMetric");
+        const fundingProjectTypeSel = document.getElementById("fundingProjectType");
         const FUNDING_LAYERS = ["housing_development", "homeowner_rehabs", "homebuyer_assistance"];
         let fundingChart;
+        let allProjectTypes = new Set();
 
-        async function renderFundingChart(metric) {
+        async function loadProjectTypes() {
+          for (const layerId of FUNDING_LAYERS) {
+            const layer = housing[layerId];
+            if (!layer) continue;
+
+            const F = layerId === "housing_development" ? DEV_FIELDS : (layerId === "homeowner_rehabs" ? REHAB_FIELDS : HBA_FIELDS);
+            const typeField = layerId === "housing_development" ? F.developmentType : (layerId === "homeowner_rehabs" ? F.rehabType : null);
+            if (!typeField) continue;
+
+            const q = layer.createQuery();
+            q.where = "1=1";
+            q.returnGeometry = false;
+            q.outFields = [typeField];
+            const res = await layer.queryFeatures(q);
+            res.features.forEach(f => {
+              const type = clean(f.attributes[typeField]);
+              if (type) allProjectTypes.add(type);
+            });
+          }
+
+          const types = Array.from(allProjectTypes).sort();
+          fundingProjectTypeSel.innerHTML = '<option value="">All types</option>' + types.map(t => `<option value="${t}">${t}</option>`).join("");
+        }
+
+        async function renderFundingChart(metric, projectType) {
           const bySource = {};
-          console.log("Rendering funding chart with metric:", metric);
+          console.log("Rendering funding chart with metric:", metric, "project type:", projectType);
 
           for (const layerId of FUNDING_LAYERS) {
             const layer = housing[layerId];
@@ -1322,10 +1352,12 @@
             }
 
             const F = layerId === "housing_development" ? DEV_FIELDS : (layerId === "homeowner_rehabs" ? REHAB_FIELDS : HBA_FIELDS);
+            const typeField = layerId === "housing_development" ? F.developmentType : (layerId === "homeowner_rehabs" ? F.rehabType : null);
+
             const q = layer.createQuery();
-            q.where = "1=1";
+            q.where = projectType && typeField ? `${typeField} = '${projectType}'` : "1=1";
             q.returnGeometry = false;
-            q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount];
+            q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount, ...(typeField ? [typeField] : [])];
 
             const res = await layer.queryFeatures(q);
             console.log(`Features from ${layerId}:`, res.features.length);
@@ -1366,8 +1398,10 @@
           });
         }
 
-        fundingMetricSel.addEventListener("change", () => renderFundingChart(fundingMetricSel.value));
-        await renderFundingChart("units");
+        fundingMetricSel.addEventListener("change", () => renderFundingChart(fundingMetricSel.value, fundingProjectTypeSel.value));
+        fundingProjectTypeSel.addEventListener("change", () => renderFundingChart(fundingMetricSel.value, fundingProjectTypeSel.value));
+        await loadProjectTypes();
+        await renderFundingChart("units", "");
       } catch (e) { console.error("Funding chart error:", e); }
 
       const updated = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
