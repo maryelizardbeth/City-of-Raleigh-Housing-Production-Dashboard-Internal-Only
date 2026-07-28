@@ -72,7 +72,7 @@ arcgis-map { position: absolute; inset: 0; }
 /* Section heading strip that separates the map from the dashboard. */
 .section-band {
   background: var(--white); border-bottom: 1px solid var(--border);
-  padding: 16px 24px;
+  padding: 32px 24px 18px;
 }
 .section-band h1 { color: var(--raleigh-green); font-size: 1.4rem; margin: 0 0 2px; }
 .section-band p { margin: 0; color: #666; font-size: .88rem; }
