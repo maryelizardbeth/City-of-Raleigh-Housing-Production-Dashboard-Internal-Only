@@ -1332,7 +1332,17 @@
         async function renderFundingCharts(selectedLayerId) {
           const bySource = {};
           const byYear = {};
-          const byAMI = {};
+          const byAMI = {
+            "≤20% AMI": 0,
+            "30% AMI": 0,
+            "40% AMI": 0,
+            "50% AMI": 0,
+            "60% AMI": 0,
+            "70% AMI": 0,
+            "80% AMI": 0,
+            "Unrestricted": 0,
+            "Homeownership": 0
+          };
           console.log("Rendering funding charts - layer:", selectedLayerId);
 
           const layersToQuery = selectedLayerId ? [selectedLayerId] : Object.keys(FUNDING_LAYERS_MAP);
