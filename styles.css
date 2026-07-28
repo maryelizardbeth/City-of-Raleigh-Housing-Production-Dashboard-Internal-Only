@@ -186,7 +186,7 @@ button.btn:hover { filter: brightness(1.08); }
 .data-table th:first-child, .data-table td:first-child { text-align: left; position: sticky; left: 0; background: var(--white); }
 .data-table td.total-col, .data-table th.total-col { font-weight: 800; color: var(--raleigh-green); background: var(--green-tint-alt); }
 .data-table tr.total-row td { font-weight: 800; border-top: 2px solid var(--leaf-green); }
-.table-scroll { overflow-x: auto; }
+.table-scroll { overflow-x: auto; overflow-y: auto; max-height: 400px; }
 .card.bond { border-top: 4px solid var(--amber); }
 .goal-note {
   font-size: .78rem; color: var(--raleigh-green); background: var(--green-tint-alt);
