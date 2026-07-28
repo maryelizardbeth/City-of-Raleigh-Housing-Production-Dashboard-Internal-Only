@@ -225,6 +225,10 @@
           <h3 style="margin:0 0 12px 0;">Total funding by year</h3>
           <div class="chart-box" style="height: 300px;"><canvas id="fundingByYear"></canvas></div>
         </div>
+        <div class="card">
+          <h3 style="margin:0 0 12px 0;">Units by income level</h3>
+          <div class="chart-box" style="height: 300px;"><canvas id="fundingByAMI"></canvas></div>
+        </div>
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Housing pipeline</h2>
@@ -1318,7 +1322,7 @@
           "homeowner_rehabs": "Home Repair",
           "homebuyer_assistance": "Homebuyer Assistance"
         };
-        let fundingChart, fundingYearChart;
+        let fundingChart, fundingYearChart, fundingAMIChart;
 
         function initProjectTypeDropdown() {
           fundingProjectTypeSel.innerHTML = '<option value="">All types</option>' +
@@ -1328,6 +1332,17 @@
         async function renderFundingCharts(selectedLayerId) {
           const bySource = {};
           const byYear = {};
+          const byAMI = {
+            "≤20% AMI": 0,
+            "30% AMI": 0,
+            "40% AMI": 0,
+            "50% AMI": 0,
+            "60% AMI": 0,
+            "70% AMI": 0,
+            "80% AMI": 0,
+            "Unrestricted": 0,
+            "Homeownership": 0
+          };
           console.log("Rendering funding charts - layer:", selectedLayerId);
 
           const layersToQuery = selectedLayerId ? [selectedLayerId] : Object.keys(FUNDING_LAYERS_MAP);
@@ -1344,7 +1359,11 @@
             const q = layer.createQuery();
             q.where = "1=1";
             q.returnGeometry = false;
-            q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount, F.fiscalYear];
+            const outFields = [F.fundingSource, F.totalUnits, F.loanAmount, F.fiscalYear];
+            if (F.amiBands) outFields.push(...F.amiBands);
+            if (F.unrestricted) outFields.push(F.unrestricted);
+            if (F.homeownership) outFields.push(F.homeownership);
+            q.outFields = outFields;
 
             const res = await layer.queryFeatures(q);
             console.log(`Features from ${layerId}:`, res.features.length);
@@ -1359,11 +1378,24 @@
 
               if (!byYear[fy]) byYear[fy] = {};
               byYear[fy][source] = (byYear[fy][source] || 0) + amount;
+
+              if (F.amiBands) {
+                byAMI["≤20% AMI"] += num(f.attributes[F.amiBands[0]]) || 0;
+                byAMI["30% AMI"] += num(f.attributes[F.amiBands[1]]) || 0;
+                byAMI["40% AMI"] += num(f.attributes[F.amiBands[2]]) || 0;
+                byAMI["50% AMI"] += num(f.attributes[F.amiBands[3]]) || 0;
+                byAMI["60% AMI"] += num(f.attributes[F.amiBands[4]]) || 0;
+                byAMI["70% AMI"] += num(f.attributes[F.amiBands[5]]) || 0;
+                byAMI["80% AMI"] += num(f.attributes[F.amiBands[6]]) || 0;
+              }
+              if (F.unrestricted) byAMI["Unrestricted"] += num(f.attributes[F.unrestricted]) || 0;
+              if (F.homeownership) byAMI["Homeownership"] += num(f.attributes[F.homeownership]) || 0;
             });
           }
 
           console.log("Aggregated data by source:", bySource);
           console.log("Aggregated data by year:", byYear);
+          console.log("Aggregated data by AMI:", byAMI);
 
           // Render pie chart (units by source)
           const labels = Object.keys(bySource).sort();
@@ -1409,6 +1441,31 @@
               maintainAspectRatio: false,
               scales: { y: { beginAtZero: true } },
               plugins: { legend: { position: "bottom" } }
+            }
+          });
+
+          // Render horizontal bar chart (units by AMI band)
+          const amiLabels = Object.keys(byAMI);
+          const amiData = Object.values(byAMI);
+          const amiColors = [BRAND.navy, BRAND.teal, BRAND.leafGreen, BRAND.chartreuse, BRAND.amber, BRAND.rust, "#E91E8C", BRAND.raleighGreen, BRAND.midGreen];
+
+          if (fundingAMIChart) fundingAMIChart.destroy();
+          fundingAMIChart = new Chart(document.getElementById("fundingByAMI"), {
+            type: "bar",
+            data: {
+              labels: amiLabels,
+              datasets: [{
+                label: "Units",
+                data: amiData,
+                backgroundColor: amiColors
+              }]
+            },
+            options: {
+              indexAxis: "y",
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: { x: { beginAtZero: true } },
+              plugins: { legend: { display: false } }
             }
           });
         }
