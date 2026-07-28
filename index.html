@@ -159,6 +159,7 @@
       <h2 style="color:var(--raleigh-green);font-size:1.05rem;margin:4px 0 4px;">Citywide production</h2>
       <div><span class="src-badge" id="truthBadge">Source of truth: Housing Production Tracker (aggregate table)</span></div>
       <div class="goal-note" id="goalNote"></div>
+      <div class="caveat" id="citywideCaveat" style="margin-top:8px;"></div>
       <div class="goal-hero" id="goalHero" style="display: none;"></div>
       <div class="kpi-row" id="kpis" style="margin-top:14px;"></div>
 
@@ -185,6 +186,7 @@
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Completed units by program — yearly &amp; total</h2>
       <div><span class="src-badge">Source of truth: Housing Production Tracker (aggregate table)</span></div>
+      <div class="caveat" style="margin-top:8px;">A "0" in this table means the aggregate table recorded no completed units for that program in that fiscal year — it does not distinguish a true zero from a not-yet-reported figure, since the source table has no separate blank/null state.</div>
       <div class="card wide" style="margin-top:12px;">
         <div class="table-scroll"><table class="data-table" id="catTable"></table></div>
         <div class="note" style="margin-top:10px;">"Sum of … (yearly and total)" for each program —
@@ -210,6 +212,8 @@
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Affordability and funding</h2>
+      <div><span class="src-badge">Source: City Housing Development, Home Repair, and Homebuyer Assistance layers (Funding Source, Total Units, City of Raleigh Loan Amount, AMI bands)</span></div>
+      <div class="caveat" id="fundingCaveat" style="margin-top:8px;"></div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 16px;">
         <label style="font-weight:600;font-size:.85rem;">Project type:</label>
         <select id="fundingProjectType" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;">
@@ -233,6 +237,7 @@
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Housing pipeline</h2>
       <div><span class="src-badge">Source: City Housing Development layer (Project_Status = Pipeline)</span></div>
+      <div class="caveat" id="pipelineCaveat" style="margin-top:8px;"></div>
       <div class="kpi-row" id="pipelineKpis" style="margin-top:14px;"></div>
       <div style="display:grid;grid-template-columns:1fr 3fr;gap:18px;align-items:stretch;">
         <div class="card">
@@ -246,6 +251,7 @@
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">City housing by geography</h2>
+      <div><span class="src-badge">Source: City Housing Development, Home Repair, Homebuyer Assistance, and Other Housing Impact layers (mapped point geometry)</span></div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 6px;">
         <label for="distSel" style="font-weight:600;font-size:.85rem;">Council district</label>
         <select id="distSel" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;"><option value="">All districts</option></select>
@@ -291,7 +297,7 @@
         <div class="card wide">
           <h4>2020 Bond summary</h4>
           <div class="kpi-row" id="bondDevKpis" style="margin-top:6px;"></div>
-          <div class="note" style="margin-top:8px;">Listing shows projects that have a 2020 Bond amount &gt; 0. Financial fields are intentionally excluded.</div>
+          <div class="caveat" style="margin-top:8px;">Definition query: only projects with <strong>Funds_Committed &gt; 0</strong> are included — projects funded by other sources with no 2020 Bond commitment are excluded from this list and its charts below. Financial fields are intentionally excluded from the summary KPIs.</div>
         </div>
       </div>
       <div class="card-grid">
@@ -831,6 +837,7 @@
       const sumUrl = `${SUMMARY_TABLE.url}/query?where=1%3D1&outFields=*&orderByFields=${SF.endYear},${SF.quarter}&returnGeometry=false&f=json`;
       const sumJson = await (await fetch(sumUrl)).json();
       const sumRows = sumJson.features.map(f => f.attributes);
+      const latestUpdate = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
 
       const combined = sumRows.filter(r => r[SF.quarterFY] === "Combined or YE");
       const yearRows = combined.filter(r => num(r[SF.total]) > 0).sort((a, b) => num(a[SF.endYear]) - num(b[SF.endYear]));
@@ -845,6 +852,10 @@
       const kpis = [["Total completed", totalAll], ...CATS.map(c => [c.label, sumCat(c.field)])];
       document.getElementById("kpis").innerHTML = kpis.map(([lbl, n]) =>
         `<div class="kpi"><div class="num">${n.toLocaleString()}</div><div class="lbl">${lbl}</div></div>`).join("");
+
+      document.getElementById("citywideCaveat").innerHTML =
+        `This table is updated quarterly by City staff; the latest update in the source is <strong>${latestUpdate}</strong>. ` +
+        `The current fiscal year's figures may still rise as new records are entered before the next quarterly update.`;
 
       /* 10-year goal-window note (FY16–26; newer production is outside the goal) */
       document.getElementById("goalNote").innerHTML =
@@ -1355,6 +1366,8 @@
             "Unrestricted": 0,
             "Homeownership": 0
           };
+          const missingSource = {};   // records per layer with no Funding_Source
+          const missingUnits = {};    // records per layer with no Total_Units (counted as 1 in the pie chart)
           console.log("Rendering funding charts - layer:", selectedLayerId);
 
           const layersToQuery = selectedLayerId ? [selectedLayerId] : Object.keys(FUNDING_LAYERS_MAP);
@@ -1385,9 +1398,16 @@
             const res = await layer.queryFeatures(q);
             console.log(`Features from ${layerId}:`, res.features.length);
 
+            missingSource[layerId] = 0;
+            missingUnits[layerId] = 0;
+
             res.features.forEach(f => {
-              const source = clean(f.attributes[F.fundingSource]) || "Not specified";
-              const units = num(f.attributes[F.totalUnits]) || 1;
+              const rawSource = clean(f.attributes[F.fundingSource]);
+              if (!rawSource) missingSource[layerId]++;
+              const source = rawSource || "Not specified";
+              const rawUnits = num(f.attributes[F.totalUnits]);
+              if (!rawUnits) missingUnits[layerId]++;
+              const units = rawUnits || 1;
               const amount = num(f.attributes[F.loanAmount]) || 0;
               const fy = clean(f.attributes[F.fiscalYear]) || "Unknown";
 
@@ -1413,6 +1433,18 @@
           console.log("Aggregated data by source:", bySource);
           console.log("Aggregated data by year:", byYear);
           console.log("Aggregated data by AMI:", byAMI);
+
+          // Data-quality caveat: how many records were missing key fields
+          const sourceGaps = Object.entries(missingSource).filter(([, n]) => n > 0)
+            .map(([id, n]) => `${n} ${FUNDING_LAYERS_MAP[id].toLowerCase()}`).join(", ");
+          const unitGaps = Object.entries(missingUnits).filter(([, n]) => n > 0)
+            .map(([id, n]) => `${n} ${FUNDING_LAYERS_MAP[id].toLowerCase()}`).join(", ");
+          const caveatParts = [];
+          if (sourceGaps) caveatParts.push(`No Funding Source recorded (shown as "Not specified"): ${sourceGaps}.`);
+          if (unitGaps) caveatParts.push(`No Total Units recorded (counted as 1 unit in the chart at left): ${unitGaps}.`);
+          document.getElementById("fundingCaveat").innerHTML = caveatParts.length
+            ? caveatParts.join(" ")
+            : "No missing Funding Source or Total Units values found in the current selection.";
 
           // Render pie chart (units by source)
           const labels = Object.keys(bySource).sort();
@@ -1515,6 +1547,21 @@
         const pipelineRows = allRows.filter(a => clean(a[F.projectStatus]) === "Pipeline");
         const totalUnitsPipeline = pipelineRows.reduce((s, a) => s + (num(a[F.totalUnits]) || 0), 0);
         const pctPipeline = totalUnitsAll > 0 ? (totalUnitsPipeline / totalUnitsAll * 100) : 0;
+
+        // Data-quality caveat: how many pipeline projects are missing key table fields
+        const gapCount = (field) => pipelineRows.filter(a => !clean(a[field])).length;
+        const gaps = [
+          ["Total Units", gapCount(F.totalUnits)],
+          ["Funding Source", gapCount(F.fundingSource)],
+          ["Development Type", gapCount(F.developmentType)],
+          ["Population", gapCount(F.population)],
+          ["construction status (Status)", gapCount(F.status)],
+        ].filter(([, n]) => n > 0);
+        document.getElementById("pipelineCaveat").innerHTML = gaps.length
+          ? `Of the ${pipelineRows.length} pipeline projects, some are missing key fields: ` +
+            gaps.map(([lbl, n]) => `${n} have no ${lbl} recorded`).join("; ") + `. Blank fields show as "—" in the table below; ` +
+            `projects with no Total Units recorded count as 0 toward the pipeline-units total and percentage above (not excluded, but not adding any units either).`
+          : `All ${pipelineRows.length} pipeline projects have complete data for the fields shown below.`;
 
         console.log("Housing pipeline - pipeline records:", pipelineRows.length, "units:", totalUnitsPipeline, "pct:", pctPipeline);
 
