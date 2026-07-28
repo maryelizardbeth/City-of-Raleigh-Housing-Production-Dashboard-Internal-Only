@@ -1421,8 +1421,15 @@
 
         fundingProjectTypeSel.addEventListener("change", () => renderFundingCharts(fundingProjectTypeSel.value));
         initProjectTypeDropdown();
-        await renderFundingCharts("");
-      } catch (e) { console.error("Funding chart error:", e.message || e); }
+        if (housing && housing.housing_development) {
+          await renderFundingCharts("");
+        } else {
+          console.warn("Housing layers not yet loaded, charts will render when data is available");
+        }
+      } catch (e) {
+        console.error("Funding chart error:", e);
+        console.error("Error stack:", e.stack);
+      }
 
       const updated = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
       document.getElementById("footer").innerHTML =
