@@ -1152,11 +1152,17 @@
         // Cumulative units by fiscal year
         const byYearSum = {};
         devRows.forEach(r => {
-          const y = pick(r, fyFields) || 'Unknown';
-          const u = Number(pick(r, unitFields)) || 0;
-          byYearSum[y] = (byYearSum[y] || 0) + u;
+          const y = (pick(r, fyFields) || '').toString().trim();
+          if (y) {
+            const u = Number(pick(r, unitFields)) || 0;
+            byYearSum[y] = (byYearSum[y] || 0) + u;
+          }
         });
-        const yearLabels = Object.keys(byYearSum).sort();
+        const yearLabels = Object.keys(byYearSum).sort((a, b) => {
+          const aYear = parseInt(a) || 0;
+          const bYear = parseInt(b) || 0;
+          return aYear - bYear;
+        });
         let cumulative = 0;
         const cumulativeData = yearLabels.map(y => {
           cumulative += byYearSum[y];
@@ -1164,8 +1170,8 @@
         });
         if (window.bondDevCumulativeChart) window.bondDevCumulativeChart.destroy();
         window.bondDevCumulativeChart = new Chart(document.getElementById('bondDevCumulative'), {
-          type: 'line', data: { labels: yearLabels, datasets: [{ label: 'Cumulative Units', data: cumulativeData, backgroundColor: 'transparent', borderColor: BRAND.raleighGreen, borderWidth: 2, tension: 0.3, fill: false }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Units' } } } },
+          type: 'line', data: { labels: yearLabels, datasets: [{ label: 'Cumulative Units', data: cumulativeData, backgroundColor: 'transparent', borderColor: BRAND.raleighGreen, borderWidth: 2, pointRadius: 4, pointBackgroundColor: BRAND.raleighGreen, tension: 0.3, fill: false }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Fiscal Year' } }, y: { beginAtZero: true, title: { display: true, text: 'Units' } } } },
         });
 
         // Scrollable project listing — exclude monetary/funding amount fields
