@@ -1407,7 +1407,7 @@
               const source = rawSource || "Not specified";
               const rawUnits = num(f.attributes[F.totalUnits]);
               if (!rawUnits) missingUnits[layerId]++;
-              const units = rawUnits || 1;
+              const units = rawUnits || 0;
               const amount = num(f.attributes[F.loanAmount]) || 0;
               const fy = clean(f.attributes[F.fiscalYear]) || "Unknown";
 
@@ -1441,10 +1441,9 @@
             .map(([id, n]) => `${n} ${FUNDING_LAYERS_MAP[id].toLowerCase()}`).join(", ");
           const caveatParts = [];
           if (sourceGaps) caveatParts.push(`No Funding Source recorded (shown as "Not specified"): ${sourceGaps}.`);
-          if (unitGaps) caveatParts.push(`No Total Units recorded (counted as 1 unit in the chart at left): ${unitGaps}.`);
-          document.getElementById("fundingCaveat").innerHTML = caveatParts.length
-            ? caveatParts.join(" ")
-            : "No missing Funding Source or Total Units values found in the current selection.";
+          if (unitGaps) caveatParts.push(`No Total Units recorded (counted as 0, not excluded): ${unitGaps}.`);
+          caveatParts.push(`The unit totals below reflect only projects with Total Units recorded — they are not a count of all projects, and will undercount true production wherever Total Units is blank.`);
+          document.getElementById("fundingCaveat").innerHTML = caveatParts.join(" ");
 
           // Render pie chart (units by source)
           const labels = Object.keys(bySource).sort();
