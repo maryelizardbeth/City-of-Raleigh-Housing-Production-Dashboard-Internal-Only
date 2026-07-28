@@ -210,6 +210,16 @@
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Affordability and funding</h2>
+      <div class="card wide" style="margin-top:12px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">
+          <label style="font-weight:600;font-size:.85rem;">Show by:</label>
+          <select id="fundingMetric" style="padding:7px 8px;font:inherit;font-size:.85rem;border:1px solid var(--border);border-radius:4px;">
+            <option value="units">Units</option>
+            <option value="amount">Loan Amount</option>
+          </select>
+        </div>
+        <div class="chart-box" style="height: 300px;"><canvas id="fundingBySource"></canvas></div>
+      </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Housing pipeline</h2>
 
@@ -1293,6 +1303,60 @@
       if (urlDist) { if ([...fDistrict.options].some(o => o.value === urlDist)) fDistrict.value = urlDist; distSel.value = distValues.includes(urlDist) ? urlDist : ""; }
       renderGeography(distSel.value, ncodSel.value);
       await applyFilters();
+
+      /* ===== AFFORDABILITY & FUNDING: Funding Source Breakdown ===== */
+      try {
+        const fundingMetricSel = document.getElementById("fundingMetric");
+        const FUNDING_LAYERS = ["housing_development", "homeowner_rehabs", "homebuyer_assistance"];
+        let fundingChart;
+
+        async function renderFundingChart(metric) {
+          const bySource = {};
+          for (const layerId of FUNDING_LAYERS) {
+            const layer = housing[layerId];
+            const F = layerId === "housing_development" ? DEV_FIELDS : (layerId === "homeowner_rehabs" ? REHAB_FIELDS : HBA_FIELDS);
+            const q = layer.createQuery();
+            q.where = "1=1";
+            q.returnGeometry = false;
+            q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount];
+            const res = await layer.queryFeatures(q);
+            res.features.forEach(f => {
+              const source = clean(f.attributes[F.fundingSource]) || "Not specified";
+              if (metric === "units") {
+                const units = num(f.attributes[F.totalUnits]) || 1;
+                bySource[source] = (bySource[source] || 0) + units;
+              } else {
+                const amount = num(f.attributes[F.loanAmount]) || 0;
+                bySource[source] = (bySource[source] || 0) + amount;
+              }
+            });
+          }
+
+          const labels = Object.keys(bySource).sort();
+          const data = labels.map(l => bySource[l]);
+          const colors = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber, BRAND.rust, BRAND.navy];
+
+          if (fundingChart) fundingChart.destroy();
+          fundingChart = new Chart(document.getElementById("fundingBySource"), {
+            type: "pie",
+            data: {
+              labels: labels,
+              datasets: [{
+                data: data,
+                backgroundColor: labels.map((_, i) => colors[i % colors.length])
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { position: "bottom" } }
+            }
+          });
+        }
+
+        fundingMetricSel.addEventListener("change", () => renderFundingChart(fundingMetricSel.value));
+        await renderFundingChart("units");
+      } catch (e) { console.error("Funding chart error:", e); }
 
       const updated = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
       document.getElementById("footer").innerHTML =
