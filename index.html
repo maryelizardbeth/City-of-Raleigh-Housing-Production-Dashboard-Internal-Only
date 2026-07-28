@@ -232,6 +232,18 @@
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Housing pipeline</h2>
+      <div><span class="src-badge">Source: City Housing Development layer (Project_Status = Pipeline)</span></div>
+      <div class="kpi-row" id="pipelineKpis" style="margin-top:14px;"></div>
+      <div class="card-grid">
+        <div class="card">
+          <h3 style="margin:0 0 12px 0;">Pipeline by construction status</h3>
+          <div class="chart-box" style="height: 280px;"><canvas id="pipelineStatusChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card wide" style="margin-top:18px;">
+        <h3 style="margin:0 0 12px 0;">Pipeline projects</h3>
+        <div class="table-scroll" style="max-height:360px;"><table class="data-table" id="pipelineTable"></table></div>
+      </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">City housing by geography</h2>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 6px;">
@@ -1485,6 +1497,83 @@
       } catch (e) {
         console.error("Funding chart error:", e);
         console.error("Error stack:", e.stack);
+      }
+
+      /* ===== HOUSING PIPELINE ===== */
+      try {
+        const F = DEV_FIELDS;
+        const q = devLayer.createQuery();
+        q.where = "1=1";
+        q.returnGeometry = false;
+        q.outFields = [F.project, F.fiscalYear, F.totalUnits, F.population, F.fundingSource, F.developmentType, F.status, F.projectStatus];
+
+        const res = await devLayer.queryFeatures(q);
+        const allRows = res.features.map(f => f.attributes);
+        console.log("Housing pipeline - total dev records:", allRows.length);
+
+        const totalUnitsAll = allRows.reduce((s, a) => s + (num(a[F.totalUnits]) || 0), 0);
+        const pipelineRows = allRows.filter(a => clean(a[F.projectStatus]) === "Pipeline");
+        const totalUnitsPipeline = pipelineRows.reduce((s, a) => s + (num(a[F.totalUnits]) || 0), 0);
+        const pctPipeline = totalUnitsAll > 0 ? (totalUnitsPipeline / totalUnitsAll * 100) : 0;
+
+        console.log("Housing pipeline - pipeline records:", pipelineRows.length, "units:", totalUnitsPipeline, "pct:", pctPipeline);
+
+        document.getElementById("pipelineKpis").innerHTML = `
+          <div class="kpi"><div class="num">${pctPipeline.toFixed(1)}%</div><div class="lbl">Of all units are in the pipeline</div></div>
+          <div class="kpi"><div class="num">${totalUnitsPipeline.toLocaleString()}</div><div class="lbl">Total pipeline units</div></div>
+          <div class="kpi"><div class="num">${pipelineRows.length.toLocaleString()}</div><div class="lbl">Pipeline projects</div></div>`;
+
+        // Breakdown of pipeline units by construction status (Pre Construction vs Under Construction)
+        const byConstStatus = {};
+        pipelineRows.forEach(a => {
+          const st = clean(a[F.status]) || "Not specified";
+          const units = num(a[F.totalUnits]) || 0;
+          byConstStatus[st] = (byConstStatus[st] || 0) + units;
+        });
+
+        const statusLabels = Object.keys(byConstStatus).sort();
+        const statusData = statusLabels.map(l => byConstStatus[l]);
+        const statusColors = [BRAND.amber, BRAND.teal, BRAND.rust, BRAND.navy, BRAND.leafGreen];
+
+        new Chart(document.getElementById("pipelineStatusChart"), {
+          type: "pie",
+          data: {
+            labels: statusLabels,
+            datasets: [{ data: statusData, backgroundColor: statusLabels.map((_, i) => statusColors[i % statusColors.length]) }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+        });
+
+        // Pipeline projects table
+        const sortedPipeline = pipelineRows.slice().sort((a, b) => {
+          const fa = clean(a[F.fiscalYear]) || "";
+          const fb = clean(b[F.fiscalYear]) || "";
+          if (fa !== fb) return fa.localeCompare(fb);
+          return (clean(a[F.project]) || "").localeCompare(clean(b[F.project]) || "");
+        });
+
+        document.getElementById("pipelineTable").innerHTML = `
+          <thead><tr>
+            <th style="text-align:left;">Fiscal Year</th>
+            <th style="text-align:left;">Project</th>
+            <th>Total Units</th>
+            <th style="text-align:left;">Population</th>
+            <th style="text-align:left;">Funding Source</th>
+            <th style="text-align:left;">Development Type</th>
+          </tr></thead>
+          <tbody>
+            ${sortedPipeline.map(a => `
+              <tr>
+                <td style="text-align:left;">${clean(a[F.fiscalYear]) || "—"}</td>
+                <td style="text-align:left;">${clean(a[F.project]) || "—"}</td>
+                <td>${fmtNum(a[F.totalUnits])}</td>
+                <td style="text-align:left;">${clean(a[F.population]) || "—"}</td>
+                <td style="text-align:left;">${clean(a[F.fundingSource]) || "—"}</td>
+                <td style="text-align:left;">${clean(a[F.developmentType]) || "—"}</td>
+              </tr>`).join("")}
+          </tbody>`;
+      } catch (e) {
+        console.error("Housing pipeline error:", e);
       }
 
       const updated = (sumRows.map(r => r[SF.dateUpdated]).filter(Boolean).sort().pop()) || "n/a";
