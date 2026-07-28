@@ -1356,11 +1356,17 @@
 
             const F = layerId === "housing_development" ? DEV_FIELDS : (layerId === "homeowner_rehabs" ? REHAB_FIELDS : HBA_FIELDS);
 
+            // DEV_FIELDS.amiBands is an array of [field, label, color] tuples;
+            // REHAB_FIELDS/HBA_FIELDS.amiBands is a plain array of field-name strings.
+            const amiFieldNames = F.amiBands
+              ? F.amiBands.map(band => Array.isArray(band) ? band[0] : band)
+              : null;
+
             const q = layer.createQuery();
             q.where = "1=1";
             q.returnGeometry = false;
             q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount, F.fiscalYear];
-            if (F.amiBands) q.outFields.push(...F.amiBands);
+            if (amiFieldNames) q.outFields.push(...amiFieldNames);
             if (F.unrestricted) q.outFields.push(F.unrestricted);
             if (F.homeownership) q.outFields.push(F.homeownership);
 
@@ -1378,17 +1384,17 @@
               if (!byYear[fy]) byYear[fy] = {};
               byYear[fy][source] = (byYear[fy][source] || 0) + amount;
 
-              if (F.amiBands && Array.isArray(F.amiBands)) {
-                byAMI["≤20% AMI"] = (byAMI["≤20% AMI"] || 0) + (num(f.attributes[F.amiBands[0]]) || 0);
-                byAMI["30% AMI"] = (byAMI["30% AMI"] || 0) + (num(f.attributes[F.amiBands[1]]) || 0);
-                byAMI["40% AMI"] = (byAMI["40% AMI"] || 0) + (num(f.attributes[F.amiBands[2]]) || 0);
-                byAMI["50% AMI"] = (byAMI["50% AMI"] || 0) + (num(f.attributes[F.amiBands[3]]) || 0);
-                byAMI["60% AMI"] = (byAMI["60% AMI"] || 0) + (num(f.attributes[F.amiBands[4]]) || 0);
-                byAMI["70% AMI"] = (byAMI["70% AMI"] || 0) + (num(f.attributes[F.amiBands[5]]) || 0);
-                byAMI["80% AMI"] = (byAMI["80% AMI"] || 0) + (num(f.attributes[F.amiBands[6]]) || 0);
+              if (amiFieldNames) {
+                byAMI["≤20% AMI"] += num(f.attributes[amiFieldNames[0]]) || 0;
+                byAMI["30% AMI"] += num(f.attributes[amiFieldNames[1]]) || 0;
+                byAMI["40% AMI"] += num(f.attributes[amiFieldNames[2]]) || 0;
+                byAMI["50% AMI"] += num(f.attributes[amiFieldNames[3]]) || 0;
+                byAMI["60% AMI"] += num(f.attributes[amiFieldNames[4]]) || 0;
+                byAMI["70% AMI"] += num(f.attributes[amiFieldNames[5]]) || 0;
+                byAMI["80% AMI"] += num(f.attributes[amiFieldNames[6]]) || 0;
               }
-              if (F.unrestricted) byAMI["Unrestricted"] = (byAMI["Unrestricted"] || 0) + (num(f.attributes[F.unrestricted]) || 0);
-              if (F.homeownership) byAMI["Homeownership"] = (byAMI["Homeownership"] || 0) + (num(f.attributes[F.homeownership]) || 0);
+              if (F.unrestricted) byAMI["Unrestricted"] += num(f.attributes[F.unrestricted]) || 0;
+              if (F.homeownership) byAMI["Homeownership"] += num(f.attributes[F.homeownership]) || 0;
             });
           }
 
