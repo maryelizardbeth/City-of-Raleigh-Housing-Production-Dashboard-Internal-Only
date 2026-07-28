@@ -1527,8 +1527,7 @@
           console.warn("Housing layers not yet loaded, charts will render when data is available");
         }
       } catch (e) {
-        console.error("Funding chart error:", e);
-        console.error("Error stack:", e.stack);
+        console.error("Funding chart error:", e && e.message, e && e.stack);
       }
 
       /* ===== HOUSING PIPELINE ===== */
