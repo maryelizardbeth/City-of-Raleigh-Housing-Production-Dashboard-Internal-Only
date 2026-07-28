@@ -1387,23 +1387,27 @@
             }
           });
 
-          // Render bar chart (funding by year by source)
+          // Render bar chart (total funding by year)
           const yearLabels = Object.keys(byYear).sort();
-          const allSources = [...new Set(Object.values(byYear).flatMap(y => Object.keys(y)))].sort();
-          const datasets = allSources.map((src, i) => ({
-            label: src,
-            data: yearLabels.map(year => (byYear[year][src] || 0) / 1000000),
-            backgroundColor: colors[i % colors.length]
-          }));
+          const yearTotals = yearLabels.map(year =>
+            Object.values(byYear[year]).reduce((sum, val) => sum + val, 0) / 1000000
+          );
 
           if (fundingYearChart) fundingYearChart.destroy();
           fundingYearChart = new Chart(document.getElementById("fundingByYear"), {
             type: "bar",
-            data: { labels: yearLabels, datasets },
+            data: {
+              labels: yearLabels,
+              datasets: [{
+                label: "Total Funding",
+                data: yearTotals,
+                backgroundColor: BRAND.raleighGreen
+              }]
+            },
             options: {
               responsive: true,
               maintainAspectRatio: false,
-              scales: { y: { stacked: true, title: { display: true, text: "Funding ($M)" } } },
+              scales: { y: { beginAtZero: true } },
               plugins: { legend: { position: "bottom" } }
             }
           });
