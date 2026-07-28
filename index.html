@@ -1312,14 +1312,24 @@
 
         async function renderFundingChart(metric) {
           const bySource = {};
+          console.log("Rendering funding chart with metric:", metric);
+
           for (const layerId of FUNDING_LAYERS) {
             const layer = housing[layerId];
+            if (!layer) {
+              console.warn("Layer not found:", layerId);
+              continue;
+            }
+
             const F = layerId === "housing_development" ? DEV_FIELDS : (layerId === "homeowner_rehabs" ? REHAB_FIELDS : HBA_FIELDS);
             const q = layer.createQuery();
             q.where = "1=1";
             q.returnGeometry = false;
             q.outFields = [F.fundingSource, F.totalUnits, F.loanAmount];
+
             const res = await layer.queryFeatures(q);
+            console.log(`Features from ${layerId}:`, res.features.length);
+
             res.features.forEach(f => {
               const source = clean(f.attributes[F.fundingSource]) || "Not specified";
               if (metric === "units") {
@@ -1331,6 +1341,8 @@
               }
             });
           }
+
+          console.log("Aggregated data by source:", bySource);
 
           const labels = Object.keys(bySource).sort();
           const data = labels.map(l => bySource[l]);
