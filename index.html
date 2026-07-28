@@ -239,14 +239,14 @@
       <div><span class="src-badge">Source: City Housing Development layer (Project_Status = Pipeline)</span></div>
       <div class="caveat" id="pipelineCaveat" style="margin-top:8px;"></div>
       <div class="kpi-row" id="pipelineKpis" style="margin-top:14px;"></div>
-      <div style="display:grid;grid-template-columns:1fr 3fr;gap:18px;align-items:stretch;">
-        <div class="card">
-          <h3 style="margin:0 0 12px 0;">Pipeline by construction status</h3>
-          <div class="chart-box" style="height: 280px;"><canvas id="pipelineStatusChart"></canvas></div>
+      <div style="display:grid;grid-template-columns:1fr 4fr;gap:18px;align-items:stretch;">
+        <div class="card" style="min-width:0;">
+          <h3 style="margin:0 0 12px 0;">Pipeline units by construction status</h3>
+          <div class="chart-box" style="height: 200px;"><canvas id="pipelineStatusChart"></canvas></div>
         </div>
-        <div class="card">
+        <div class="card" style="min-width:0;">
           <h3 style="margin:0 0 12px 0;">Pipeline projects</h3>
-          <div class="table-scroll" style="max-height:280px;"><table class="data-table" id="pipelineTable"></table></div>
+          <div class="table-scroll" style="max-height:280px;overflow-x:auto;"><table class="data-table" id="pipelineTable"></table></div>
         </div>
       </div>
 
@@ -1581,12 +1581,15 @@
         const statusColors = [BRAND.amber, BRAND.teal, BRAND.rust, BRAND.navy, BRAND.leafGreen];
 
         new Chart(document.getElementById("pipelineStatusChart"), {
-          type: "pie",
+          type: "doughnut",
           data: {
             labels: statusLabels,
             datasets: [{ data: statusData, backgroundColor: statusLabels.map((_, i) => statusColors[i % statusColors.length]) }]
           },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+          options: {
+            responsive: true, maintainAspectRatio: false, cutout: "65%",
+            plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } } }
+          }
         });
 
         // Pipeline projects table
