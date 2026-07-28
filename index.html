@@ -771,8 +771,8 @@
         }));
         const total = results.reduce((s, n) => s + n, 0);
         document.getElementById("resultCount").innerHTML = `<strong>${total.toLocaleString()}</strong> city housing record${total === 1 ? "" : "s"} shown on the map.`;
-        // keep the dashboard district panel in sync with the map's district filter
-        syncDistrict(fDistrict.value, "map");
+        // keep the dashboard geography panel in sync with the map's district filter
+        syncGeography(fDistrict.value, "");
         writeUrl(fDistrict.value);
       }
       // Every filter applies instantly (no Apply button).
