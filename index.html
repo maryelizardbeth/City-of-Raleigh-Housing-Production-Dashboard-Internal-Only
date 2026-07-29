@@ -334,7 +334,14 @@
       </div>
       <div class="card-grid">
         <div class="card wide">
-          <h4>2020 Bond housing development projects</h4>
+          <h4 style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span>2020 Bond housing development projects</span>
+            <select id="bondDevStatusFilter" style="font:inherit;font-size:.8rem;font-weight:400;padding:4px 6px;border:1px solid var(--border);border-radius:4px;">
+              <option value="">All statuses</option>
+              <option value="Complete">Complete</option>
+              <option value="Pipeline">Pipeline</option>
+            </select>
+          </h4>
           <div class="table-scroll"><table class="data-table" id="bondDevList"></table></div>
         </div>
       </div>
@@ -1227,18 +1234,26 @@
         });
 
         // Scrollable project listing — exclude monetary/funding amount fields
-        const rows = devRows.sort((a,b) => (''+pick(b, fyFundedFields)).localeCompare(''+pick(a, fyFundedFields)));
-        let tbl = `<thead><tr><th>Project</th><th>Category</th><th>Fiscal Year Funded</th><th>Status</th><th>Total Units</th></tr></thead><tbody>`;
-        rows.forEach(r => {
-          const proj = pick(r, nameFields) || '—';
-          const bc = mapCategoryDev(pick(r, catFields));
-          const fy = pick(r, fyFundedFields) || '';
-          const st = collapseStatus(pick(r, statusFields));
-          const u = Number(pick(r, unitFields)) || 0;
-          tbl += `<tr><td>${proj}</td><td>${bc}</td><td>${fy}</td><td>${st}</td><td>${u.toLocaleString()}</td></tr>`;
-        });
-        tbl += '</tbody>';
-        document.getElementById('bondDevList').innerHTML = tbl;
+        const allRows = devRows.slice().sort((a,b) => (''+pick(b, fyFundedFields)).localeCompare(''+pick(a, fyFundedFields)));
+        function renderBondDevList(statusFilter) {
+          const rows = statusFilter ? allRows.filter(r => collapseStatus(pick(r, statusFields)) === statusFilter) : allRows;
+          let tbl = `<thead><tr><th>Project</th><th>Category</th><th>Fiscal Year Funded</th><th>Status</th><th>Total Units</th></tr></thead><tbody>`;
+          let unitTotal = 0;
+          rows.forEach(r => {
+            const proj = pick(r, nameFields) || '—';
+            const bc = mapCategoryDev(pick(r, catFields));
+            const fy = pick(r, fyFundedFields) || '';
+            const st = collapseStatus(pick(r, statusFields));
+            const u = Number(pick(r, unitFields)) || 0;
+            unitTotal += u;
+            tbl += `<tr><td>${proj}</td><td>${bc}</td><td>${fy}</td><td>${st}</td><td>${u.toLocaleString()}</td></tr>`;
+          });
+          tbl += `<tr class="total-row"><td colspan="4">Total (${rows.length.toLocaleString()} project${rows.length === 1 ? '' : 's'})</td><td class="total-col">${unitTotal.toLocaleString()}</td></tr>`;
+          tbl += '</tbody>';
+          document.getElementById('bondDevList').innerHTML = tbl;
+        }
+        document.getElementById('bondDevStatusFilter').addEventListener('change', (e) => renderBondDevList(e.target.value));
+        renderBondDevList('');
 
       } catch (e) { console.error('Bond development list load error', e); document.getElementById('bondDevKpis').innerHTML = '<div class="note">Could not load 2020 Bond development projects.</div>'; }
 
