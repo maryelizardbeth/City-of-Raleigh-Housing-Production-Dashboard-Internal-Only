@@ -163,12 +163,11 @@
     <!-- ========================= DASHBOARD SECTION ======================== -->
     <div class="section-band" id="dash-top">
       <h1>City of Raleigh Housing Production Dashboard</h1>
-      <p id="sub"></p>
     </div>
 
     <div id="dashboard" class="dash-wrap">
       <h2 style="color:var(--raleigh-green);font-size:1.05rem;margin:4px 0 4px;">Citywide production</h2>
-      <div><span class="src-badge" id="truthBadge">Source of truth: Housing Production Tracker (aggregate table)</span></div>
+      <div><span class="src-badge" id="truthBadge">Source: Housing Production Tracker (aggregate table)</span></div>
       <div class="caveat" id="citywideCaveat" style="margin-top:8px;"></div>
       <div class="kpi-row" id="kpis" style="margin-top:14px;"></div>
 
@@ -180,7 +179,7 @@
       </div>
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">Completed units by program — yearly &amp; total</h2>
-      <div><span class="src-badge">Source of truth: Housing Production Tracker (aggregate table)</span></div>
+      <div><span class="src-badge">Source: Housing Production Tracker (aggregate table)</span></div>
       <div class="caveat" style="margin-top:8px;">A "0" in this table means the aggregate table recorded no completed units for that program in that fiscal year — it does not distinguish a true zero from a not-yet-reported figure, since the source table has no separate blank/null state.</div>
       <div class="card wide" style="margin-top:12px;">
         <div class="table-scroll"><table class="data-table" id="catTable"></table></div>
@@ -897,9 +896,6 @@
       const fyLabel = (r) => "FY" + String(r[SF.endYear]).slice(2);
       const labels = yearRows.map(fyLabel);
 
-      document.getElementById("sub").textContent =
-        `Completed units by fiscal year (${labels[0]}–${labels[labels.length - 1]}), from the Housing Production Tracker (the authoritative aggregate). Pipeline is tracked from FY26 forward.`;
-
       const sumCat = (field) => yearRows.reduce((s, r) => s + num(r[field]), 0);
       const totalAll = yearRows.reduce((s, r) => s + num(r[SF.total]), 0);
       const kpis = [["Total completed", totalAll], ...CATS.map(c => [c.label, sumCat(c.field)])];
@@ -907,6 +903,7 @@
         `<div class="kpi"><div class="num">${n.toLocaleString()}</div><div class="lbl">${lbl}</div></div>`).join("");
 
       document.getElementById("citywideCaveat").innerHTML =
+        `Completed units by fiscal year (${labels[0]}–${labels[labels.length - 1]}), from the Housing Production Tracker (the authoritative aggregate). Pipeline is tracked from FY26 forward. ` +
         `This table is updated quarterly by City staff; the latest update in the source is <strong>${latestUpdate}</strong>. ` +
         `The current fiscal year's figures may still rise as new records are entered before the next quarterly update.`;
 
