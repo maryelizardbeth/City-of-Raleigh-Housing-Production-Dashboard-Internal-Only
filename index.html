@@ -12,6 +12,136 @@
   </head>
 
   <body>
+    <div class="welcome-overlay" id="welcomeOverlay">
+      <div class="welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcomeHeading">
+        <button class="welcome-close" id="welcomeClose" aria-label="Close">&times;</button>
+
+        <div class="welcome-panel" data-step="1">
+          <h2 id="welcomeHeading">City of Raleigh Housing Production Dashboard</h2>
+          <p>Welcome to the City of Raleigh's Housing Production Dashboard. In this dashboard you will find demographic data and housing production data for the City of Raleigh.</p>
+          <p>This dashboard has three components—an interactive map, a section of interactive charts detailing overall production data, and a section of interactive charts specific to the 2020 Housing Bond.</p>
+        </div>
+
+        <div class="welcome-panel" data-step="2">
+          <h2>Housing Landscape Map</h2>
+          <p>What this interactive dashboard map contains:</p>
+          <p class="welcome-subhead">Demographic data:</p>
+          <ul>
+            <li>Median rent</li>
+            <li>Vacancy rate</li>
+            <li>Count of total rental units</li>
+            <li>% Vacant housing units</li>
+            <li>% Owner-occupied housing units</li>
+            <li>% Homeowners cost-burdened / severely cost-burdened</li>
+            <li>% Renters cost-burdened / severely cost-burdened</li>
+          </ul>
+          <p class="welcome-subhead">Housing production data:</p>
+          <ul>
+            <li>On affordable housing construction and preservation.</li>
+            <li>Information on affordable and subsidized housing projects that are not City-funded.</li>
+          </ul>
+          <p class="welcome-subhead">Geographic context:</p>
+          <ul>
+            <li>Transit options</li>
+            <li>Council districts</li>
+            <li>Neighborhood Conservation Overlay Districts</li>
+          </ul>
+          <p>In the map section, you can find information on City-funded projects as well as non-City funded affordable housing, such as affordable housing that received federal funding.</p>
+          <p class="welcome-subhead">Helpful information:</p>
+          <p>For the interactive map, units are counted as "Complete" once they have received a Certificate of Occupancy. Units in the "Pipeline" are units either under construction or in the pre-construction phase.</p>
+        </div>
+
+        <div class="welcome-panel" data-step="3">
+          <p class="welcome-eyebrow">Overall production charts section</p>
+          <h2>Raleigh's Housing Production by the Numbers</h2>
+          <p class="welcome-subhead">About the City of Raleigh's Housing Production Dashboard</p>
+          <p>For this interactive chart section, units are counted as "Complete" at different times.</p>
+          <p>For Housing Development, both Preservation and New Construction, units are considered "Completed" when they have received a Certificate of Occupancy. Until then (i.e., when they are in Pre-Construction or Under Construction), they are considered in the "Pipeline".</p>
+          <p>Home Buyer Assistance projects are considered "Complete" once homeowners have received the assistance funds from the City of Raleigh.</p>
+          <p>Home Repair units are considered "Complete" when all construction work has been finished.</p>
+        </div>
+
+        <div class="welcome-panel" data-step="4">
+          <p class="welcome-eyebrow">2020 Housing Bond section</p>
+          <h2>2020 Housing Bond</h2>
+          <p>This section contains information only regarding housing production and preservation funded by the 2020 Housing Bond.</p>
+          <p>All units in this section are tracked by commitment.</p>
+        </div>
+
+        <div class="welcome-panel" data-step="5">
+          <h2>Disclaimer &amp; Contact</h2>
+          <p>The information provided in this dashboard is for general informational purposes only. It is updated periodically by City of Raleigh staff, and while every effort is made to ensure its accuracy and completeness, the City makes no warranties or guarantees regarding the data presented here. This dashboard is a prototype intended for internal staff use and is not an official public record.</p>
+          <p>Questions, feedback, or corrections about this dashboard can be directed to the City of Raleigh Housing &amp; Neighborhoods Department at <em>housing@raleighnc.gov</em>.</p>
+          <p>By clicking "I Agree" below, you acknowledge that you have read and understand the information presented in this welcome guide.</p>
+          <label class="welcome-agree-row">
+            <input type="checkbox" id="welcomeAgreeCheck" />
+            I agree to the terms and conditions of use for this dashboard.
+          </label>
+        </div>
+
+        <div class="welcome-footer">
+          <div class="welcome-dots" id="welcomeDots"></div>
+          <div class="welcome-buttons">
+            <button class="btn secondary" id="welcomeBack">Back</button>
+            <button class="btn" id="welcomeNext">Next</button>
+            <button class="btn" id="welcomeAgree" style="display:none;" disabled>I Agree</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var STORAGE_KEY = "raleighDashboardWelcomeSeen";
+        var overlay = document.getElementById("welcomeOverlay");
+        var panels = Array.prototype.slice.call(document.querySelectorAll(".welcome-panel"));
+        var dotsWrap = document.getElementById("welcomeDots");
+        var backBtn = document.getElementById("welcomeBack");
+        var nextBtn = document.getElementById("welcomeNext");
+        var agreeBtn = document.getElementById("welcomeAgree");
+        var agreeCheck = document.getElementById("welcomeAgreeCheck");
+        var closeBtn = document.getElementById("welcomeClose");
+        var total = panels.length;
+        var step = 1;
+
+        panels.forEach(function () {
+          var dot = document.createElement("span");
+          dotsWrap.appendChild(dot);
+        });
+        var dots = Array.prototype.slice.call(dotsWrap.children);
+
+        function render() {
+          panels.forEach(function (p) {
+            p.classList.toggle("active", Number(p.getAttribute("data-step")) === step);
+          });
+          dots.forEach(function (d, i) {
+            d.classList.toggle("active", i === step - 1);
+          });
+          backBtn.style.visibility = step === 1 ? "hidden" : "visible";
+          var onLastStep = step === total;
+          nextBtn.style.display = onLastStep ? "none" : "inline-block";
+          agreeBtn.style.display = onLastStep ? "inline-block" : "none";
+        }
+
+        function close() {
+          overlay.classList.remove("open");
+          try { localStorage.setItem(STORAGE_KEY, "true"); } catch (e) {}
+        }
+
+        backBtn.addEventListener("click", function () { if (step > 1) { step--; render(); } });
+        nextBtn.addEventListener("click", function () { if (step < total) { step++; render(); } });
+        agreeCheck.addEventListener("change", function () { agreeBtn.disabled = !agreeCheck.checked; });
+        agreeBtn.addEventListener("click", close);
+        closeBtn.addEventListener("click", close);
+
+        render();
+
+        var alreadySeen = false;
+        try { alreadySeen = localStorage.getItem(STORAGE_KEY) === "true"; } catch (e) {}
+        if (!alreadySeen) overlay.classList.add("open");
+      })();
+    </script>
+
     <header class="app-header">
       <img class="logo" src="./raleigh_horizontal.png" alt="City of Raleigh" />
       <div class="title">Housing Landscape

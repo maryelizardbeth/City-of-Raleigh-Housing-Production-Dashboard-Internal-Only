@@ -30,6 +30,52 @@ body {
 /* Sticky header offset target so anchor jumps clear the fixed header. */
 [id] { scroll-margin-top: calc(var(--header-h) + 8px); }
 
+/* --- Welcome / onboarding modal -------------------------------------------- */
+.welcome-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(20, 30, 20, .55);
+  z-index: 1000; align-items: center; justify-content: center; padding: 20px;
+}
+.welcome-overlay.open { display: flex; }
+.welcome-modal {
+  position: relative; background: var(--white); border-radius: 10px;
+  width: 100%; max-width: 620px; max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0,0,0,.35); padding: 32px 32px 20px;
+  border-top: 8px solid var(--raleigh-green);
+}
+.welcome-close {
+  position: absolute; top: 14px; right: 16px; border: none; background: none;
+  font-size: 1.6rem; line-height: 1; color: #888; cursor: pointer; padding: 4px 8px;
+}
+.welcome-close:hover { color: var(--raleigh-green); }
+.welcome-panel { display: none; }
+.welcome-panel.active { display: block; }
+.welcome-panel h2 { color: var(--raleigh-green); font-size: 1.3rem; margin: 0 0 14px; }
+.welcome-panel p { margin: 0 0 12px; line-height: 1.5; font-size: .92rem; }
+.welcome-panel ul { margin: 0 0 12px; padding-left: 22px; }
+.welcome-panel li { margin-bottom: 4px; font-size: .92rem; line-height: 1.45; }
+.welcome-subhead { font-weight: 700; color: var(--raleigh-green); margin: 16px 0 6px !important; }
+.welcome-eyebrow {
+  font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--teal); margin: 0 0 4px !important;
+}
+.welcome-agree-row {
+  display: flex; align-items: center; gap: 10px; font-size: .9rem; font-weight: 600;
+  color: var(--raleigh-green); background: var(--green-tint-alt); border: 1px solid var(--green-tint);
+  border-radius: 4px; padding: 10px 12px; margin-top: 8px; cursor: pointer;
+}
+.welcome-agree-row input { width: 16px; height: 16px; flex: 0 0 auto; cursor: pointer; }
+.welcome-footer {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border-top: 1px solid var(--light-fill); margin-top: 20px; padding-top: 16px;
+}
+.welcome-dots { display: flex; gap: 7px; }
+.welcome-dots span {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--border); display: inline-block;
+}
+.welcome-dots span.active { background: var(--raleigh-green); }
+.welcome-buttons { display: flex; gap: 8px; }
+.welcome-buttons button:disabled { opacity: .5; cursor: not-allowed; }
+
 /* --- Header --------------------------------------------------------------- */
 .app-header {
   height: var(--header-h);
