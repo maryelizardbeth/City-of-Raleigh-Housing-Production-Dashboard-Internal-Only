@@ -79,7 +79,7 @@
             </div>
             <div class="range-label" id="unitLabel"></div>
           </div>
-          <div class="field"><label for="fDevType">Development type</label><select id="fDevType"><option value="">Any</option></select></div>
+          <div class="field"><label for="fDevType">LIHTC</label><select id="fDevType"><option value="">Any</option></select></div>
           <div class="field">
             <label>AMI level (project has ≥1 unit in the selected band(s))</label>
             <div class="checks" id="fAmiChecks"></div>
@@ -425,12 +425,12 @@
         let h = `<div class="pop"><table>`;
         h += row("Developer", cleanTracked(a[F.developer]) || "—");
         h += row("Address", clean(a[F.address]) || "—");
-        h += row("Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
+        h += row("Development Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
         h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
         h += row("Total units", fmtNum(a[F.totalUnits]));
         if (num(a[F.homeownership]) > 0) h += row("Homeownership units", fmtNum(a[F.homeownership]));
         h += row("Population served", cleanTracked(a[F.population]) || "—");
-        h += row("Development Status", clean(a[F.construction]) || "—");
+        h += row("Construction Type", clean(a[F.construction]) || "—");
         h += row("LIHTC", clean(a[F.developmentType]) || "—");
         h += row("Council district", clean(a[F.council]) || "—");
         h += row("Funding source", clean(a[F.fundingSource]) || "—");
@@ -449,7 +449,7 @@
         let h = `<div class="pop"><table>`;
         h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
         h += row("Total units", fmtNum(a[F.totalUnits]));
-        h += row("Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
+        h += row("Development Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
         h += row("Council district", clean(a[F.council]) || "—");
         if (clean(a[F.notes])) h += row("Notes", clean(a[F.notes]));
         return h + `</table>${deidNote}</div>`;
@@ -460,7 +460,7 @@
         let h = `<div class="pop"><table>`;
         h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
         h += row("Rehab type", clean(a[F.rehabType]) || "—");
-        h += row("Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
+        h += row("Development Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
         h += row("Household AMI", num(a[F.ami]) > 0 ? (num(a[F.ami]) * 100).toFixed(1) + "%" : "—");
         if (!isPipeline) h += row("Approved loan", fmtMoney(a[F.loanAmount]));
         h += row("Funding source", clean(a[F.fundingSource]) || "—");
