@@ -69,10 +69,13 @@ body {
 .main { flex: 1 1 auto; position: relative; min-width: 0; }
 arcgis-map { position: absolute; inset: 0; }
 
-/* Section heading strip that separates the map from the dashboard. */
+/* Section heading strip that separates the map from the dashboard. Sticky
+   under the app header; the second one (dashboard) is later in the DOM so
+   it visually takes over the fixed spot once scrolled up to meet it. */
 .section-band {
   background: var(--white); border-bottom: 1px solid var(--border);
-  padding: 32px 24px 18px;
+  padding: 14px 24px 12px;
+  position: sticky; top: var(--header-h); z-index: 20;
 }
 .section-band h1 { color: var(--raleigh-green); font-size: 1.4rem; margin: 0 0 2px; }
 .section-band p { margin: 0; color: #666; font-size: .88rem; }
