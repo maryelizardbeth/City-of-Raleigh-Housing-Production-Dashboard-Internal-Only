@@ -19,7 +19,8 @@
       </div>
       <nav>
         <a href="#map" class="active">Map</a>
-        <a href="#dashboard">Dashboard</a>
+        <a href="#dashboard">Housing Production</a>
+        <a href="#bond-top">2020 Housing Bond</a>
       </nav>
     </header>
 
@@ -34,7 +35,6 @@
           <p class="panel-intro">Explore where the City of Raleigh has funded, built, or preserved
           affordable housing, alongside neighborhood boundaries, transit, and market indicators.
           Click any point for project details. Scroll down for citywide production charts.</p>
-          <button class="btn" id="jumpBtn">Jump to charts ↓</button>
         </div>
 
         <div class="panel-section">
@@ -266,7 +266,7 @@
 
     </div>
 
-    <div class="section-band" style="border-top: 10px solid var(--leaf-green); margin-top: -44px;">
+    <div class="section-band" id="bond-top" style="border-top: 10px solid var(--leaf-green); margin-top: -44px;">
       <h1>City of Raleigh 2020 Housing Bond</h1>
     </div>
 
@@ -351,10 +351,6 @@
         $arcgis.import("@arcgis/core/layers/VectorTileLayer.js"),
         $arcgis.import("@arcgis/core/Basemap.js"),
       ]);
-
-      // "Jump to charts" button — scroll to the dashboard (wired immediately).
-      document.getElementById("jumpBtn").addEventListener("click", () =>
-        document.getElementById("dash-top").scrollIntoView({ behavior: "smooth" }));
 
       const viewEl = document.querySelector("arcgis-map");
       viewEl.center = MAP.center;
