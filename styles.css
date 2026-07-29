@@ -55,12 +55,6 @@ body {
 .app-header nav a:hover { opacity: 1; background: rgba(255,255,255,.14); }
 .app-header nav a.active { opacity: 1; background: var(--leaf-green); }
 
-.page-banner {
-  background: var(--white); border-top: 10px solid var(--leaf-green); border-bottom: 1px solid var(--border);
-  padding: 16px 24px;
-}
-.page-banner h1 { color: var(--raleigh-green); font-size: 1.4rem; margin: 0; }
-
 /* --- Layout: map section (sidebar + map), then dashboard below ----------- */
 .map-section {
   display: flex;
