@@ -310,7 +310,7 @@
 
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">2020 Housing Bond Development Projects (PPP, LIHTC Gap Financing, Site Acquisition Only)</h2>
       <div><span class="src-badge">Source: 2020 Bond Tracker (f_2020_Bond_Tracker_Housing_Development_2020)</span></div>
-      <div class="caveat" style="margin-top:8px;">Definition query: only projects with <strong>Funds_Committed &gt; 0</strong> are included — projects funded by other sources with no 2020 Bond commitment are excluded from this section. Financial fields are intentionally excluded from the summary KPIs.</div>
+      <div class="caveat" style="margin-top:8px;">This section includes every project in the table, with no filtering applied. Financial fields are intentionally excluded from the summary KPIs.</div>
 
       <div class="card-grid" style="margin-top:12px;">
         <div class="card bond wide">
@@ -1137,7 +1137,7 @@
 
       /* -------------------- 2020 Bond Development (FeatureServer) -------------------- */
       try {
-        const devUrl = 'https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/f_2020_Bond_Tracker_Housing_Development_2020/FeatureServer/0/query?where=Funds_Committed%20%3E%200&outFields=*&returnGeometry=false&f=json';
+        const devUrl = 'https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/f_2020_Bond_Tracker_Housing_Development_2020/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=false&f=json';
         const devJson = await (await fetch(devUrl)).json();
         const devRows = devJson.features.map(f => f.attributes || {});
 
