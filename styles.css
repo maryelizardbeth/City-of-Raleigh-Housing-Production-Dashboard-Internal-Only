@@ -55,6 +55,13 @@ body {
 .app-header nav a:hover { opacity: 1; background: rgba(255,255,255,.14); }
 .app-header nav a.active { opacity: 1; background: var(--leaf-green); }
 
+.page-banner {
+  background: var(--green-tint-alt); color: var(--raleigh-green);
+  border-bottom: 1px solid var(--green-tint);
+  font-weight: 700; font-size: .95rem; letter-spacing: .2px;
+  text-align: center; padding: 8px 16px;
+}
+
 /* --- Layout: map section (sidebar + map), then dashboard below ----------- */
 .map-section {
   display: flex;
@@ -188,46 +195,6 @@ button.btn:hover { filter: brightness(1.08); }
 .data-table tr.total-row td { font-weight: 800; border-top: 2px solid var(--leaf-green); }
 .table-scroll { overflow-x: auto; overflow-y: auto; max-height: 400px; }
 .card.bond { border-top: 4px solid var(--amber); }
-.goal-note {
-  font-size: .78rem; color: var(--raleigh-green); background: var(--green-tint-alt);
-  border: 1px solid var(--green-tint); border-radius: 4px; padding: 8px 10px; margin: 6px 0 12px;
-}
-/* Goal-surpassed hero */
-.goal-hero { display: flex; flex-wrap: wrap; gap: 16px; margin: 0 0 8px; }
-.goal-card {
-  background: linear-gradient(135deg, var(--raleigh-green), var(--mid-green)); color: #fff;
-  border-radius: 8px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(13,105,55,.25);
-}
-.goal-card .eyebrow { font-size: .74rem; text-transform: uppercase; letter-spacing: .6px; opacity: .9; }
-.goal-card .big { font-size: 2.6rem; font-weight: 800; line-height: 1; margin: 4px 0 2px; }
-.goal-card .sub { font-size: .84rem; opacity: .92; }
-.goal-card .pill {
-  display: inline-block; background: var(--amber); color: #3a2a00; font-weight: 800;
-  font-size: .82rem; border-radius: 14px; padding: 4px 12px; margin-top: 12px;
-}
-/* overfill bar inside the (white) gauge card: green left of the Goal marker
-   (progress to goal), orange right of it (surpassed); "+N units" sits inline
-   to the right of the bar. */
-.goal-bar-row { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 20px; }
-.goal-bar-col { flex: 1 1 auto; min-width: 0; }
-.goal-bar-wrap { position: relative; background: #e9e9e9; border-radius: 8px; height: 16px; width: 100%; }
-.goal-bar-fill { position: absolute; top: 0; height: 100%; }
-.goal-bar-fill.toward { left: 0; background: var(--raleigh-green); border-radius: 8px 0 0 8px; }
-.goal-bar-fill.over   { background: var(--amber); border-radius: 0 8px 8px 0; }
-.goal-marker { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #333; }
-.goal-marker span { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: .64rem; font-weight: 700; white-space: nowrap; color: var(--body-text); }
-.goal-surplus { flex: 0 0 auto; font-weight: 800; font-size: .82rem; color: #B26A00; white-space: nowrap; }
-.goal-bar-ends { display: flex; justify-content: space-between; font-size: .66rem; color: #777; width: 100%; margin-top: 3px; }
-.goal-gauge-card {
-  background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--amber);
-  border-radius: 8px; padding: 12px 16px 12px; display: flex; flex-direction: column; align-items: center;
-  flex: 1 1 300px; max-width: 460px;
-}
-.goal-gauge-card h4 { margin: 0 0 4px; color: var(--raleigh-green); font-size: .9rem; text-align: center; }
-.goal-gauge-box { position: relative; width: 100%; height: 140px; }
-.gauge-center { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; pointer-events: none; }
-.gauge-center .gauge-pct { font-size: 1.9rem; font-weight: 800; color: var(--raleigh-green); line-height: 1; }
-.gauge-center .gauge-lbl { font-size: .72rem; color: #666; }
 
 .footer-note {
   font-size: .72rem; color: #777; padding: 14px 16px; line-height: 1.4;

@@ -23,6 +23,8 @@
       </nav>
     </header>
 
+    <div class="page-banner">City of Raleigh Housing Production Map</div>
+
     <!-- ============================ MAP SECTION ============================ -->
     <section id="map" class="map-section">
       <aside class="sidebar">
@@ -158,36 +160,20 @@
 
     <!-- ========================= DASHBOARD SECTION ======================== -->
     <div class="section-band" id="dash-top">
-      <h1>Housing Production Dashboard</h1>
+      <h1>City of Raleigh Housing Production Dashboard</h1>
       <p id="sub"></p>
     </div>
 
     <div id="dashboard" class="dash-wrap">
       <h2 style="color:var(--raleigh-green);font-size:1.05rem;margin:4px 0 4px;">Citywide production</h2>
       <div><span class="src-badge" id="truthBadge">Source of truth: Housing Production Tracker (aggregate table)</span></div>
-      <div class="goal-note" id="goalNote"></div>
       <div class="caveat" id="citywideCaveat" style="margin-top:8px;"></div>
-      <div class="goal-hero" id="goalHero" style="display: none;"></div>
       <div class="kpi-row" id="kpis" style="margin-top:14px;"></div>
 
       <div class="card-grid">
-        <div class="card wide" style="display: grid; grid-template-columns: 200px 1fr; gap: 2rem; align-items: start;">
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem 0; cursor: help;" title="The City's production goal covers FY16–FY26 only.">
-            <svg width="160" height="160" viewBox="0 0 160 160" style="margin-bottom: 1rem;">
-              <circle cx="80" cy="80" r="70" fill="none" stroke="var(--border)" stroke-width="8"/>
-              <circle cx="80" cy="80" r="70" fill="none" stroke="#E91E8C" stroke-width="8" stroke-dasharray="453 0" stroke-linecap="round" style="transform-origin: 80px 80px; transform: rotate(-90deg);"/>
-              <text x="80" y="78" text-anchor="middle" font-size="32" font-weight="500" fill="var(--text-primary)">103%</text>
-              <text x="80" y="98" text-anchor="middle" font-size="13" fill="var(--text-secondary)">of goal</text>
-            </svg>
-            <div style="text-align: center; font-size: 13px;">
-              <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem;">5,873 units</div>
-              <div style="color: var(--text-secondary); font-size: 12px;">Goal: 5,700</div>
-            </div>
-          </div>
-          <div>
-            <h3 style="margin: 0 0 1rem;">Completed units by fiscal year (by category)</h3>
-            <div class="chart-box"><canvas id="stacked"></canvas></div>
-          </div>
+        <div class="card wide">
+          <h3 style="margin: 0 0 1rem;">Completed units by fiscal year (by category)</h3>
+          <div class="chart-box"><canvas id="stacked"></canvas></div>
         </div>
       </div>
 
@@ -279,6 +265,19 @@
       <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">2020 Bond Housing Development Projects (PPP, LIHTC Gap Financing, Site Acquisition Only)</h2>
       <div><span class="src-badge">Source: 2020 Bond Tracker (f_2020_Bond_Tracker_Bond_2020_Totals)</span></div>
       <div class="caveat" id="bondCaveat" style="margin-top:8px;">Note: The 2020 Bond data below comes from a separate data source and is not tabulated in the same way as above. Be advised that totals will not always match.</div>
+
+      <div class="card-grid" style="margin-top:12px;">
+        <div class="card bond">
+          <h4>2020 Bond funding — committed vs. available</h4>
+          <div class="chart-box" style="height:180px;"><canvas id="bondFundingGauge"></canvas></div>
+          <div class="kpi-row" id="bondFundingKpis" style="margin-top:10px;"></div>
+        </div>
+        <div class="card bond">
+          <h4>Committed funding by category</h4>
+          <div class="chart-box" style="height:260px;"><canvas id="bondCommittedByCategory"></canvas></div>
+        </div>
+      </div>
+
       <div class="card wide" style="margin-top:12px;">
         <div class="table-scroll"><table class="data-table" id="bond2020Table"></table></div>
         <div class="note" style="margin-top:10px;">Units and totals from the 2020 Bond Tracker table.</div>
@@ -294,7 +293,7 @@
           <h4>2020 Bond Tracker Pivot</h4>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
             <label for="pivotMetric">Metric</label>
-            <select id="pivotMetric" style="margin-left:6px;padding:6px;font:inherit;"><option value="Total_Units">Units</option><option value="Funds_Available">Funds available</option><option value="Funds_Committed">Funds committed</option></select>
+            <select id="pivotMetric" style="margin-left:6px;padding:6px;font:inherit;"><option value="Total_Units">Units</option><option value="Funds_Committed">Funds committed</option></select>
           </div>
           <div class="table-scroll"><table class="data-table" id="bondPivotTable"></table></div>
         </div>
@@ -408,26 +407,36 @@
         return `<div style="margin-top:8px;"><div class="k" style="font-size:.78rem;">Affordability by AMI</div>
                 <div class="ami-bar">${bar}</div><div style="font-size:.72rem;">${legend}</div></div>`;
       }
+      // Some fields use the literal string "Not Tracked" as a data value instead of leaving
+      // the field blank; treat it the same as blank so the popup shows a dash either way.
+      const cleanTracked = (v) => {
+        const c = clean(v);
+        return /^not tracked$/i.test(c) ? "" : c;
+      };
       function devPopup(a) {
         const F = DEV_FIELDS;
+        const isComplete = clean(a[F.projectStatus]) === "Complete";
         const funds = F.fundingAmounts.filter(([f]) => num(a[f]) > 0).map(([f, lbl]) => `${lbl}: ${fmtMoney(a[f])}`);
         let h = `<div class="pop"><table>`;
-        h += row("Developer", clean(a[F.developer]) || "—");
+        h += row("Developer", cleanTracked(a[F.developer]) || "—");
         h += row("Address", clean(a[F.address]) || "—");
         h += row("Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
         h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
         h += row("Total units", fmtNum(a[F.totalUnits]));
         if (num(a[F.homeownership]) > 0) h += row("Homeownership units", fmtNum(a[F.homeownership]));
-        h += row("Population served", clean(a[F.population]) || "—");
-        h += row("Construction", clean(a[F.construction]) || "—");
-        h += row("Development type", clean(a[F.developmentType]) || "—");
+        h += row("Population served", cleanTracked(a[F.population]) || "—");
+        h += row("Development Status", clean(a[F.construction]) || "—");
+        h += row("LIHTC", clean(a[F.developmentType]) || "—");
         h += row("Council district", clean(a[F.council]) || "—");
-        h += row("City contribution", fmtMoney(a[F.loanAmount]));
-        if (funds.length) h += row("Funding sources", funds.join("<br>"));
+        h += row("Funding source", clean(a[F.fundingSource]) || "—");
+        if (isComplete) {
+          h += row("Total City Contribution", fmtMoney(a[F.loanAmount]));
+          if (funds.length) h += row("Funding sources", funds.join("<br>"));
+        }
         if (a[F.coDate]) h += row("Certificate of Occ.", fmtDate(a[F.coDate]));
         h += `</table>`;
-        if (clean(a[F.projectStatus]) === "Complete") h += amiBar(a, F.amiBands, F.unrestricted);
-        else h += `<div class="note" style="margin-top:8px;">AMI affordability breakdown withheld until project is complete.</div>`;
+        if (isComplete) h += amiBar(a, F.amiBands, F.unrestricted);
+        else h += `<div class="note" style="margin-top:8px;">The breakdown of AMI units and the City's total contribution amount will be published when construction is complete.</div>`;
         return h + `</div>`;
       }
       function otherPopup(a) {
@@ -442,12 +451,13 @@
       }
       function rehabPopup(a) {
         const F = REHAB_FIELDS;
+        const isPipeline = clean(a[F.projectStatus]) === "Pipeline";
         let h = `<div class="pop"><table>`;
         h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
         h += row("Rehab type", clean(a[F.rehabType]) || "—");
         h += row("Status", clean(a[F.status]) || clean(a[F.projectStatus]) || "—");
         h += row("Household AMI", num(a[F.ami]) > 0 ? (num(a[F.ami]) * 100).toFixed(1) + "%" : "—");
-        h += row("Approved loan", fmtMoney(a[F.loanAmount]));
+        if (!isPipeline) h += row("Approved loan", fmtMoney(a[F.loanAmount]));
         h += row("Funding source", clean(a[F.fundingSource]) || "—");
         h += row("Council district", clean(a[F.council]) || "—");
         if (clean(a[F.note])) h += row("Note", clean(a[F.note]));
@@ -455,11 +465,12 @@
       }
       function hbaPopup(a) {
         const F = HBA_FIELDS;
+        const isPipeline = clean(a[F.projectStatus]) === "Pipeline";
         const band = F.amiBands.find(k => num(a[k]) > 0);
         let h = `<div class="pop"><table>`;
         h += row("Fiscal year", clean(a[F.fiscalYear]) || "—");
         h += row("Household AMI", num(a[F.ami]) > 0 ? (num(a[F.ami]) * 100).toFixed(1) + "%" : (band ? band.match(/\d+/)[0] + "% band" : "—"));
-        h += row("City loan amount", fmtMoney(a[F.loanAmount]));
+        if (!isPipeline) h += row("City loan amount", fmtMoney(a[F.loanAmount]));
         h += row("Funding source", clean(a[F.fundingSource]) || "—");
         h += row("Council district", clean(a[F.council]) || "—");
         return h + `</table>${deidNote}</div>`;
@@ -677,7 +688,12 @@
         return [...set].sort((a, b) => (a === "None") - (b === "None") || a.localeCompare(b));
       }
       await Promise.all(HOUSING_LAYERS.map(c => housing[c.id].load()));
-      fillSel(fYear,     await unionDistinct("year"));
+      // Only publish through FY26 (ending June 30, 2026); hide FY27+ from the year filter.
+      const publishedYears = (await unionDistinct("year")).filter(y => {
+        const end = parseInt(String(y).split("-")[1], 10);
+        return !end || end <= 2026;
+      });
+      fillSel(fYear,     publishedYears);
       fillSel(fFunding,  await unionDistinct("funding"));
       fillSel(fDevType,  await unionDistinct("devType"));
       fillSel(fDistrict, await unionDistinct("district"));
@@ -879,40 +895,6 @@
         `This table is updated quarterly by City staff; the latest update in the source is <strong>${latestUpdate}</strong>. ` +
         `The current fiscal year's figures may still rise as new records are entered before the next quarterly update.`;
 
-      /* 10-year goal-window note (FY16–26; newer production is outside the goal) */
-      document.getElementById("goalNote").innerHTML =
-        `<strong>10-year goal window:</strong> the City's production goal covers <strong>${labels[0]}–${labels[labels.length - 1]}</strong>. ` +
-        `Units recorded for FY2027 and beyond fall <strong>outside</strong> that goal window and are tracked separately.`;
-
-      /* Goal-surpassed hero — two eye-catching visuals of 5,873 vs the 5,700 goal */
-      const GOAL = 5700;
-      const surplus = totalAll - GOAL, pctGoal = totalAll / GOAL * 100;
-      const goalPct = GOAL / totalAll * 100;   // marker position (share of total that is the goal)
-      document.getElementById("goalHero").innerHTML = `
-        <div class="goal-gauge-card">
-          <h4>Progress to 10-year goal</h4>
-          <div class="goal-gauge-box"><canvas id="goalGauge"></canvas>
-            <div class="gauge-center"><div class="gauge-pct">${pctGoal.toFixed(0)}%</div><div class="gauge-lbl">of ${GOAL.toLocaleString()} goal</div></div>
-          </div>
-          <div class="goal-bar-row">
-            <div class="goal-bar-col">
-              <div class="goal-bar-wrap">
-                <div class="goal-bar-fill toward" style="width:${goalPct.toFixed(1)}%"></div>
-                <div class="goal-bar-fill over" style="left:${goalPct.toFixed(1)}%;width:${(100 - goalPct).toFixed(1)}%"></div>
-                <div class="goal-marker" style="left:${goalPct.toFixed(1)}%"><span>Goal ${GOAL.toLocaleString()}</span></div>
-              </div>
-              <div class="goal-bar-ends"><span>0</span><span><strong>${totalAll.toLocaleString()}</strong> completed</span></div>
-            </div>
-            <span class="goal-surplus">+${surplus.toLocaleString()} units</span>
-          </div>
-        </div>`;
-      new Chart(document.getElementById("goalGauge"), {
-        type: "doughnut",
-        data: { labels: ["Toward goal", "Surplus over goal"], datasets: [{ data: [GOAL, surplus], backgroundColor: [BRAND.raleighGreen, BRAND.amber], borderWidth: 0 }] },
-        options: { rotation: -90, circumference: 180, cutout: "72%", responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.label}: ${c.parsed.toLocaleString()} units` } } } },
-      });
-
       /* Yearly + Total program table (colleague's "Sum of … (yearly and total)") */
       const COLLEAGUE_LABEL = {
         "Housing_Development_New_Construction": "Rental Units Constructed",
@@ -996,6 +978,30 @@
 
         rowsHtml += '</tbody>';
         document.getElementById('bond2020Table').innerHTML = headerTop + headerBottom + rowsHtml;
+
+        /* Funding meter: total committed vs. available (mirrors the removed 5,700 goal gauge) */
+        const bondPctCommitted = grandFundsAvailable > 0 ? (grandFundsCommitted / grandFundsAvailable * 100) : 0;
+        const bondRemaining = Math.max(grandFundsAvailable - grandFundsCommitted, 0);
+        document.getElementById('bondFundingKpis').innerHTML = `
+          <div class="kpi"><div class="num">${fmtMoney(grandFundsCommitted)}</div><div class="lbl">Committed</div></div>
+          <div class="kpi"><div class="num">${fmtMoney(grandFundsAvailable)}</div><div class="lbl">Total available</div></div>
+          <div class="kpi"><div class="num">${bondPctCommitted.toFixed(0)}%</div><div class="lbl">Committed</div></div>`;
+        new Chart(document.getElementById('bondFundingGauge'), {
+          type: 'doughnut',
+          data: { labels: ['Committed', 'Uncommitted'], datasets: [{ data: [grandFundsCommitted, bondRemaining], backgroundColor: [BRAND.amber, BRAND.border], borderWidth: 0 }] },
+          options: { rotation: -90, circumference: 180, cutout: '72%', responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.label}: ${fmtMoney(c.parsed)}` } } } },
+        });
+
+        /* Pie: committed funding by category (committed only, not spent) */
+        const bondPalette = [BRAND.raleighGreen, BRAND.leafGreen, BRAND.chartreuse, BRAND.teal, BRAND.midGreen, BRAND.amber];
+        const committedByCat = categories.map(cat => bondRows.filter(r => mapCategory(r.Bond_2020_Category || r.Funding_Source) === cat)
+          .reduce((s, r) => s + (Number(r.Funds_Committed) || 0), 0));
+        new Chart(document.getElementById('bondCommittedByCategory'), {
+          type: 'pie',
+          data: { labels: categories, datasets: [{ data: committedByCat, backgroundColor: categories.map((_, i) => bondPalette[i % bondPalette.length]) }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+        });
 
         /* -------------------------- Build visualizations ------------------------- */
         // Prepare matrices
@@ -1190,6 +1196,21 @@
         const statusFields = [DEV_FIELDS.projectStatus,'Status','PROJECT_STATUS','ProjectStatus','projectStatus'];
         const fundsFields = ['Funds_Committed','FundsCommitted','FUNDS_COMMITTED'];
 
+        // Normalize raw category text onto the 5 canonical 2020 Bond categories.
+        const ALLOWED_CATS_DEV = ["Home Repair","Public Private Partnerships","LIHTC Gap Financing","Site Acquisition","Homebuyer Assistance"];
+        const normalizeDev = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const mapCategoryDev = raw => {
+          const r = normalizeDev(raw);
+          if (!r) return 'Other';
+          for (const ac of ALLOWED_CATS_DEV) {
+            const an = normalizeDev(ac);
+            if (r === an || r.includes(an) || an.includes(r)) return ac;
+          }
+          return 'Other';
+        };
+        // Collapse detailed construction statuses down to Complete / Pipeline.
+        const collapseStatus = s => (String(s || '').trim().toLowerCase() === 'complete' ? 'Complete' : 'Pipeline');
+
         // summary KPIs
         const totalProjects = devRows.length;
         const totalUnits = devRows.reduce((s, r) => s + (Number(pick(r, unitFields)) || 0), 0);
@@ -1199,14 +1220,14 @@
           <div class="kpi"><div class="num">${totalUnits.toLocaleString()}</div><div class="lbl">Total Units</div></div>
           <div class="kpi"><div class="num">${fmtMoney(totalFunds)}</div><div class="lbl">Funds Committed</div></div>`;
 
-        // Units by category
+        // Units by category (normalized onto the 5 canonical 2020 Bond categories)
         const byCat = {};
         devRows.forEach(r => {
-          const c = (pick(r, catFields) || 'Other').toString();
+          const c = mapCategoryDev(pick(r, catFields));
           const u = Number(pick(r, unitFields)) || 0;
           byCat[c] = (byCat[c] || 0) + u;
         });
-        const catLabels = Object.keys(byCat).sort();
+        const catLabels = ALLOWED_CATS_DEV.filter(c => byCat[c] > 0).concat(byCat['Other'] > 0 ? ['Other'] : []);
         const catData = catLabels.map(l => byCat[l]);
         if (window.bondDevCatChart) window.bondDevCatChart.destroy();
         window.bondDevCatChart = new Chart(document.getElementById('bondDevByCategory'), {
@@ -1214,10 +1235,10 @@
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
         });
 
-        // Units by status
+        // Units by status (collapsed to Complete / Pipeline)
         const byStatus = {};
         devRows.forEach(r => {
-          const s = (pick(r, statusFields) || 'Unknown').toString();
+          const s = collapseStatus(pick(r, statusFields));
           const u = Number(pick(r, unitFields)) || 0;
           byStatus[s] = (byStatus[s] || 0) + u;
         });
@@ -1259,9 +1280,9 @@
         let tbl = `<thead><tr><th>Project</th><th>Category</th><th>Fiscal Year Funded</th><th>Status</th><th>Total Units</th></tr></thead><tbody>`;
         rows.forEach(r => {
           const proj = pick(r, nameFields) || '—';
-          const bc = pick(r, catFields) || '—';
+          const bc = mapCategoryDev(pick(r, catFields));
           const fy = pick(r, fyFundedFields) || '';
-          const st = pick(r, statusFields) || '—';
+          const st = collapseStatus(pick(r, statusFields));
           const u = Number(pick(r, unitFields)) || 0;
           tbl += `<tr><td>${proj}</td><td>${bc}</td><td>${fy}</td><td>${st}</td><td>${u.toLocaleString()}</td></tr>`;
         });

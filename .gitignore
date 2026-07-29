@@ -9,3 +9,6 @@ desktop.ini
 # Local env / secrets (none expected, but never commit these)
 .env
 *.local
+
+# Local backup snapshots (editor/manual saves)
+*.bak.*

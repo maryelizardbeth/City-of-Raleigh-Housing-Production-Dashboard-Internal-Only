@@ -197,7 +197,7 @@ export const HUD_LAYERS = [
     url: `${HUD_BASE}/Multifamily_Properties_Assisted/FeatureServer/0`,
     where: WAKE, style: "diamond", color: "#189ABC",
     name: ["PROPERTY_NAME_TEXT"], addr: ["ADDRESS_LINE1_TEXT", "PLACED_BASE_CITY_NAME_TEXT"], units: "TOTAL_ASSISTED_UNIT_COUNT",
-    extra: [["Total units", "TOTAL_UNIT_COUNT"], ["Category", "PROPERTY_CATEGORY_NAME"], ["Client group", "CLIENT_GROUP_NAME"]],
+    extra: [["Total units", "TOTAL_UNIT_COUNT"], ["Category", "PROPERTY_CATEGORY_NAME"]],
     visible: false,
   },
   {
@@ -205,8 +205,8 @@ export const HUD_LAYERS = [
     title: "LIHTC Properties (tax-credit)",
     url: `${HUD_BASE}/LIHTC/FeatureServer/0`,
     where: "PROJ_ST='NC' AND CURCNTY_NM LIKE 'Wake%'", style: "triangle", color: "#FBAE40",
-    name: ["PROJECT"], addr: ["PROJ_ADD", "PROJ_CTY"], units: "N_UNITS",
-    extra: [["Low-income units", "LI_UNITS"], ["Year placed in service", "YR_PIS"], ["Allocation amt", "ALLOCAMT"]],
+    name: ["PROJECT"], addr: ["PROJ_ADD", "PROJ_CTY"], units: null,
+    extra: [["Year placed in service", "YR_PIS"]],
     visible: false,
   },
   {
@@ -215,7 +215,7 @@ export const HUD_LAYERS = [
     url: `${HUD_BASE}/HUD_Insured_Multifamily_Properties/FeatureServer/0`,
     where: WAKE, style: "x", color: "#A8322D",
     name: ["PROPERTY_NAME_TEXT"], addr: ["ADDRESS_LINE1_TEXT", "PLACED_BASE_CITY_NAME_TEXT"], units: "MAXIMUM_CONTRACT_UNIT_COUNT",
-    extra: [["Program", "PROGRAM_TYPE1"], ["Client group", "CLIENT_GROUP_NAME"]],
+    extra: [["Program", "PROGRAM_TYPE1"]],
     visible: false,
   },
 ];
