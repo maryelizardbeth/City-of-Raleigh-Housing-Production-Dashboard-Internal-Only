@@ -24,7 +24,7 @@
     </header>
 
     <div class="section-band" style="border-top: 10px solid var(--leaf-green);">
-      <h1>City of Raleigh Housing Production Map</h1>
+      <h1>Housing Landscape Map</h1>
     </div>
 
     <!-- ============================ MAP SECTION ============================ -->
@@ -266,12 +266,12 @@
 
     </div>
 
-    <div class="section-band" style="border-top: 10px solid var(--leaf-green);">
+    <div class="section-band" style="border-top: 10px solid var(--leaf-green); margin-top: -60px;">
       <h1>City of Raleigh 2020 Housing Bond</h1>
     </div>
 
-    <div class="dash-wrap">
-      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:30px 0 4px;border-top:1px solid var(--border);padding-top:20px;">2020 Bond Housing Development Projects (PPP, LIHTC Gap Financing, Site Acquisition Only)</h2>
+    <div class="dash-wrap" style="padding-top: 0;">
+      <h2 style="color:var(--raleigh-green);font-size:1.15rem;margin:4px 0 4px;">2020 Bond Housing Development Projects (PPP, LIHTC Gap Financing, Site Acquisition Only)</h2>
       <div><span class="src-badge">Source: 2020 Bond Tracker (f_2020_Bond_Tracker_Bond_2020_Totals)</span></div>
       <div class="caveat" id="bondCaveat" style="margin-top:8px;">Note: The 2020 Bond data below comes from a separate data source and is not tabulated in the same way as above. Be advised that totals will not always match.</div>
 
@@ -1128,63 +1128,6 @@
       } else {
         document.getElementById("pipeline").insertAdjacentHTML("afterend", `<div class="note">No FY26 quarterly data recorded yet.</div>`);
       }
-
-      /* =================================================================== *
-       *  BOND PRODUCTION — how the 2020 Housing Bond was used (geometry-based)
-       * =================================================================== */
-      const BOND_FIELD = "f_2020_Bond", UNITS = "Total_Units";
-      // f_2020_Bond is numeric on Development + Homeowner Rehabs (string/empty on HBA) -> aggregate those two.
-      const BOND_LAYERS = ["housing_development", "homeowner_rehabs"];
-      async function statSum(layer, where, valueField) {
-        const q = layer.createQuery(); q.where = where; q.returnGeometry = false;
-        q.outStatistics = [{ statisticType: "sum", onStatisticField: valueField, outStatisticFieldName: "v" }];
-        try { const r = await layer.queryFeatures(q); return num(r.features[0] && r.features[0].attributes.v); } catch (e) { return 0; }
-      }
-      async function groupSum(layer, where, groupField, valueField) {
-        const q = layer.createQuery(); q.where = where; q.returnGeometry = false;
-        q.groupByFieldsForStatistics = [groupField];
-        q.outStatistics = [{ statisticType: "sum", onStatisticField: valueField, outStatisticFieldName: "v" }];
-        try { return (await layer.queryFeatures(q)).features.map(f => ({ key: clean(f.attributes[groupField]) || "Not specified", v: num(f.attributes.v) })); } catch (e) { return []; }
-      }
-      try {
-        let bondUnits = 0, bondDollars = 0, bondProjects = 0;
-        const byYear = {};
-        for (const id of BOND_LAYERS) {
-          const layer = housing[id], w = `${BOND_FIELD} > 0`;
-          bondUnits   += await statSum(layer, w, UNITS);
-          bondDollars += await statSum(layer, w, BOND_FIELD);
-          bondProjects += await layer.queryFeatureCount({ where: w });
-          (await groupSum(layer, w, FILTERABLE[id].year, UNITS)).forEach(g => { byYear[g.key] = (byYear[g.key] || 0) + g.v; });
-        }
-        document.getElementById("bondKpis").innerHTML = [
-          ["2020 Bond invested", fmtMoney(bondDollars)],
-          ["Bond-funded units", fmtNum(bondUnits)],
-          ["Bond-funded projects", fmtNum(bondProjects)],
-        ].map(([l, v]) => `<div class="kpi"><div class="num">${v}</div><div class="lbl">${l}</div></div>`).join("");
-
-        // City housing units by funding source (Development layer — richest funding detail)
-        const bySource = (await groupSum(housing.housing_development, "1=1", DEV_FIELDS.fundingSource, UNITS))
-          .filter(g => g.v > 0).sort((a, b) => b.v - a.v);
-        new Chart(document.getElementById("bondBySource"), {
-          type: "bar",
-          data: { labels: bySource.map(g => g.key), datasets: [{ label: "Units", data: bySource.map(g => g.v),
-            backgroundColor: bySource.map(g => /2020 Bond/i.test(g.key) ? BRAND.amber : BRAND.leafGreen) }] },
-          options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-            scales: { x: { title: { display: true, text: "Units" } } } },
-        });
-
-        // 2020 Bond-funded units by fiscal year
-        const yrs = Object.keys(byYear).sort();
-        new Chart(document.getElementById("bondByYear"), {
-          type: "bar",
-          data: { labels: yrs.map(y => "FY" + y.slice(2)), datasets: [{ label: "Bond-funded units", data: yrs.map(y => byYear[y]), backgroundColor: BRAND.amber }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-            scales: { y: { title: { display: true, text: "Units" } } } },
-        });
-        document.getElementById("bondCaveat").innerHTML +=
-          ` <br><strong>Story:</strong> the 2020 Housing Bond has funded <strong>${fmtNum(bondUnits)}</strong> units across ` +
-          `<strong>${bondProjects}</strong> projects (${fmtMoney(bondDollars)} committed on the mapped layers).`;
-      } catch (e) { document.getElementById("bondCaveat").innerHTML += ` (Bond figures could not be loaded: ${e.message})`; }
 
       /* -------------------- 2020 Bond Development (FeatureServer) -------------------- */
       try {
